@@ -1,0 +1,7 @@
+mnist/output/*.png
+img2nn
+adder
+adder_gen
+xor
+xor_gen
+train
