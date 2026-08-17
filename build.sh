@@ -3,7 +3,8 @@
 set -xe
 
 # source ../raylib.env && ./build.sh
-# source ../raylib.env && ./build.sh && ./img2nn ./mnist/training/3.png
+# source ../raylib.env && ./build.sh && ./upscalenn ./mnist/training/3.png
+# source ../raylib.env && ./build.sh && ./morph2nn ./mnist/training/3.png ./mnist/training/7.png
 # ./train <model.arch> <model.mat>
 CFLAGS="-O3 `pkg-config --cflags raylib`"
 #CFLAGS2="-O3"
@@ -17,4 +18,5 @@ CC="gcc"
 #$CC -O3 -o xor xor.c -lm
 #$CC -O3 -o dump_nn dump_nn.c -lm
 #$CC -o dump_nn dump_nn.c -lm
-$CC $CFLAGS -o img2nn img2nn.c $LIBS
+#$CC $CFLAGS -o upscalenn upscalenn.c $LIBS
+$CC $CFLAGS -o morph2nn morph2nn.c $LIBS

@@ -1,5 +1,6 @@
 mnist/output/*.png
-img2nn
+upscalenn
+morph2nn
 adder
 adder_gen
 xor
