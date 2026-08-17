@@ -187,7 +187,8 @@ int main(int argc, char **argv)
         }
     }
 
-    Mat ti = {
+    // matrices made during epochs
+    /*Mat ti = {
         .rows = t.rows,
         .cols = 2,
         .stride = t.stride,
@@ -197,7 +198,7 @@ int main(int argc, char **argv)
         .rows = t.rows,
         .cols = 1,
         .stride = t.stride,
-        .es = &MAT_AT(t, 0, ti.cols)};
+        .es = &MAT_AT(t, 0, ti.cols)};*/
 
     // MAT_PRINT(ti);
     // MAT_PRINT(to);
@@ -211,8 +212,6 @@ int main(int argc, char **argv)
     InitWindow(IMG_WIDTH, IMG_HEIGHT, "Train");
     SetTargetFPS(120);
 
-    float rate = 1;
-    float cost = 0;
     Cost_Plot plot = {0};
 
     Image preview_image = GenImageColor(img_width, img_height, BLACK);
@@ -232,7 +231,16 @@ int main(int argc, char **argv)
     size_t epoch = 0;
     size_t max_epoch = 100 * 1000;
     size_t epochs_per_frame = 100;
+    size_t batches_per_frame = 200;
+    size_t batch_size = 28;
+    size_t batch_begin = 0;
+    size_t batch_count = (t.rows + batch_size - 1) / batch_size;
+    float avg_cost = 0.f;
+    float rate = 0.5f;
     bool paused = true;
+
+    mat_shuffle_rows(t);
+
     while (!WindowShouldClose())
     {
 
@@ -246,17 +254,40 @@ int main(int argc, char **argv)
             plot.count = 0;
         }
 
-        for (size_t i = 0; i < epochs_per_frame && !paused && epoch < max_epoch; i++)
+        for (size_t i = 0; i < batches_per_frame && !paused && epoch < max_epoch; i++)
         {
-            if (epoch < max_epoch)
+            size_t size = batch_size;
+
+            if (batch_begin + batch_size >= t.rows)
+                size = t.rows - batch_begin;
+
+            Mat batch_ti = {
+                .rows = size,
+                .cols = 2,
+                .stride = t.stride,
+                .es = &MAT_AT(t, batch_begin, 0),
+            };
+
+            Mat batch_to = {
+                .rows = size,
+                .cols = 1,
+                .stride = t.stride,
+                .es = &MAT_AT(t, batch_begin, batch_ti.cols),
+            };
+
+            nn_backprop(nn, g, batch_ti, batch_to);
+            nn_learn(nn, g, rate);
+            avg_cost += nn_cost(nn, batch_ti, batch_to);
+            batch_begin += batch_size;
+            //  printf("cost#%d = %f\n", (epoch + 1), cost);
+            //   if (epoch % 100 == 0)
+            if (batch_begin >= t.rows)
             {
-                nn_backprop(nn, g, ti, to);
-                nn_learn(nn, g, rate);
-                cost = nn_cost(nn, ti, to);
-                //  printf("cost#%d = %f\n", (epoch + 1), cost);
-                //   if (epoch % 100 == 0)
-                da_append(&plot, cost);
+                da_append(&plot, avg_cost / batch_count);
+                avg_cost = 0.0f;
                 epoch++;
+                batch_begin = 0;
+                mat_shuffle_rows(t);
             }
         }
 
@@ -266,7 +297,8 @@ int main(int argc, char **argv)
         int h = GetRenderHeight();
 
         char buffer[256];
-        snprintf(buffer, sizeof(buffer), "Epoch : %zu/%zu\t\tRate : %f\t\tCost: %f", epoch, max_epoch, rate, cost);
+        // snprintf(buffer, sizeof(buffer), "Epoch : %zu/%zu\t\tRate : %f\t\tCost: %f", epoch, max_epoch, rate, cost);
+        snprintf(buffer, sizeof(buffer), "Epoch : %zu/%zu\t\tRate : %f\t\tCost : %f", epoch, max_epoch, rate, (plot.count > 0) ? plot.items[plot.count - 1] : 0);
         DrawText(buffer, 0, 0, h * 0.04, WHITE);
         int rw, rh, rx, ry;
 
