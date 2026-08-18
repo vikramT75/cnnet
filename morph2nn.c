@@ -7,6 +7,7 @@
 #include "./thirdparty/stb_image.h"       // STB_IMAGE_IMPLEMENTATION
 #include "./thirdparty/stb_image_write.h" // AND STB_IMAGE_WRIE_IMPLEMENTATION already in raylib lib.
 
+#define NN_ACT ACT_SIG
 #define NN_IMPLEMENTATION
 #include "nn.h"
 
@@ -341,7 +342,12 @@ int main(int argc, char **argv)
                     MAT_AT(NN_INPUT(nn), 0, 1) = (float)y / (out_height - 1);
                     MAT_AT(NN_INPUT(nn), 0, 2) = scroll;
                     nn_forward(nn);
-                    uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+                    float a = MAT_AT(NN_OUTPUT(nn), 0, 0);
+                    if (a < 0)
+                        a = 0;
+                    if (a > 1)
+                        a = 1;
+                    uint8_t pixel = a * 255.f;
                     out_pixels[y * out_width + x] = pixel;
                 }
             }
@@ -433,7 +439,12 @@ int main(int argc, char **argv)
                 MAT_AT(NN_INPUT(nn), 0, 1) = (float)y / (img1_height - 1);
                 MAT_AT(NN_INPUT(nn), 0, 2) = 0.0f;
                 nn_forward(nn);
-                uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+                float a = MAT_AT(NN_OUTPUT(nn), 0, 0);
+                if (a < 0)
+                    a = 0;
+                if (a > 1)
+                    a = 1;
+                uint8_t pixel = a * 255.f;
                 ImageDrawPixel(&preview_image1, x, y, CLITERAL(Color){pixel, pixel, pixel, 255});
             }
         }
@@ -446,7 +457,12 @@ int main(int argc, char **argv)
                 MAT_AT(NN_INPUT(nn), 0, 1) = (float)y / (img2_height - 1);
                 MAT_AT(NN_INPUT(nn), 0, 2) = 1.0f;
                 nn_forward(nn);
-                uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+                float a = MAT_AT(NN_OUTPUT(nn), 0, 0);
+                if (a < 0)
+                    a = 0;
+                if (a > 1)
+                    a = 1;
+                uint8_t pixel = a * 255.f;
                 ImageDrawPixel(&preview_image2, x, y, CLITERAL(Color){pixel, pixel, pixel, 255});
             }
         }
@@ -459,7 +475,12 @@ int main(int argc, char **argv)
                 MAT_AT(NN_INPUT(nn), 0, 1) = (float)y / (preview_height - 1);
                 MAT_AT(NN_INPUT(nn), 0, 2) = scroll;
                 nn_forward(nn);
-                uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+                float a = MAT_AT(NN_OUTPUT(nn), 0, 0);
+                if (a < 0)
+                    a = 0;
+                if (a > 1)
+                    a = 1;
+                uint8_t pixel = a * 255.f;
                 ImageDrawPixel(&preview_image3, x, y, CLITERAL(Color){pixel, pixel, pixel, 255});
             }
         }
@@ -517,19 +538,6 @@ int main(int argc, char **argv)
         EndDrawing();
     }
 
-    /*for (size_t y = 0; y < (size_t)img1_height; y++)
-    {
-        for (size_t x = 0; x < (size_t)img1_width; x++)
-        {
-            uint8_t pixel = img1_pixels[y * img1_width + x];
-            if (pixel)
-                printf("%3u ", pixel);
-            else
-                printf("    ");
-        }
-        printf("\n");
-    }*/
-
     printf("\n\n");
 
     for (size_t y = 0; y < (size_t)preview_height; y++)
@@ -540,7 +548,12 @@ int main(int argc, char **argv)
             MAT_AT(NN_INPUT(nn), 0, 1) = (float)y / (img1_height - 1);
             MAT_AT(NN_INPUT(nn), 0, 2) = scroll;
             nn_forward(nn);
-            uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+            float a = MAT_AT(NN_OUTPUT(nn), 0, 0);
+            if (a < 0)
+                a = 0;
+            if (a > 1)
+                a = 1;
+            uint8_t pixel = a * 255.f;
             if (pixel)
                 printf("%3u ", pixel);
             else
@@ -549,7 +562,7 @@ int main(int argc, char **argv)
         printf("\n");
     }
 
-    printf("\n\n");
+    printf("\n");
 
     size_t out_width = 512;
     size_t out_height = 512;
@@ -564,7 +577,12 @@ int main(int argc, char **argv)
             MAT_AT(NN_INPUT(nn), 0, 1) = (float)y / (out_height - 1);
             MAT_AT(NN_INPUT(nn), 0, 2) = scroll;
             nn_forward(nn);
-            uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+            float a = MAT_AT(NN_OUTPUT(nn), 0, 0);
+            if (a < 0)
+                a = 0;
+            if (a > 1)
+                a = 1;
+            uint8_t pixel = a * 255.f;
             out_pixels[y * out_width + x] = pixel;
         }
     }
@@ -579,7 +597,7 @@ int main(int argc, char **argv)
     if (!stbi_write_png(out_file_path, out_width, out_height, 1, out_pixels, out_width * sizeof(*out_pixels)))
         fprintf(stderr, "ERROR : Could not save image as %s\n", out_file_path);
 
-    printf("Generated image %s from input %s\n", out_file_path, img1_file_path);
+    printf("Generated image %s\n", out_file_path);
 
     return 0;
 }

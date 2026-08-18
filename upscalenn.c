@@ -6,6 +6,8 @@
 #include "./thirdparty/stb_image.h"       // STB_IMAGE_IMPLEMENTATION
 #include "./thirdparty/stb_image_write.h" // AND STB_IMAGE_WRIE_IMPLEMENTATION already in raylib lib.
 
+#define NN_ACT ACT_RELU
+#define NN_BACKPROP_TRADITIONAL
 #define NN_IMPLEMENTATION
 #include "nn.h"
 
@@ -44,6 +46,8 @@ char *args_shift(int *argc, char ***argv)
     (*argv) += 1;
     return result;
 }
+
+size_t arch[] = {2, 10, 10, 4, 1};
 
 void nn_render_raylib(NN nn, int rx, int ry, int rw, int rh)
 {
@@ -202,7 +206,6 @@ int main(int argc, char **argv)
     // MAT_PRINT(ti);
     // MAT_PRINT(to);
 
-    size_t arch[] = {2, 7, 4, 1};
     NN nn = nn_alloc(arch, ARRAY_LEN(arch));
     NN g = nn_alloc(arch, ARRAY_LEN(arch));
     nn_rand(nn, -1, 1);
@@ -267,7 +270,12 @@ int main(int argc, char **argv)
                     MAT_AT(NN_INPUT(nn), 0, 0) = (float)x / (out_width - 1);
                     MAT_AT(NN_INPUT(nn), 0, 1) = (float)y / (out_height - 1);
                     nn_forward(nn);
-                    uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+                    float a = MAT_AT(NN_OUTPUT(nn), 0, 0);
+                    if (a < 0)
+                        a = 0;
+                    if (a > 1)
+                        a = 1;
+                    uint8_t pixel = a * 255.f;
                     out_pixels[y * out_width + x] = pixel;
                 }
             }
@@ -357,7 +365,12 @@ int main(int argc, char **argv)
                 MAT_AT(NN_INPUT(nn), 0, 0) = (float)x / (img_width - 1);
                 MAT_AT(NN_INPUT(nn), 0, 1) = (float)y / (img_height - 1);
                 nn_forward(nn);
-                uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+                float a = MAT_AT(NN_OUTPUT(nn), 0, 0);
+                if (a < 0)
+                    a = 0;
+                if (a > 1)
+                    a = 1;
+                uint8_t pixel = a * 255.f;
                 ImageDrawPixel(&preview_image, x, y, CLITERAL(Color){pixel, pixel, pixel, 255});
             }
         }
@@ -384,6 +397,8 @@ int main(int argc, char **argv)
 
     printf("\n\n");
 
+    printf("\n");
+
     for (size_t y = 0; y < (size_t)img_height; y++)
     {
         for (size_t x = 0; x < (size_t)img_width; x++)
@@ -391,7 +406,12 @@ int main(int argc, char **argv)
             MAT_AT(NN_INPUT(nn), 0, 0) = (float)x / (img_width - 1);
             MAT_AT(NN_INPUT(nn), 0, 1) = (float)y / (img_height - 1);
             nn_forward(nn);
-            uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+            float a = MAT_AT(NN_OUTPUT(nn), 0, 0);
+            if (a < 0)
+                a = 0;
+            if (a > 1)
+                a = 1;
+            uint8_t pixel = a * 255.f;
             if (pixel)
                 printf("%3u ", pixel);
             else
@@ -414,7 +434,12 @@ int main(int argc, char **argv)
             MAT_AT(NN_INPUT(nn), 0, 0) = (float)x / (out_width - 1);
             MAT_AT(NN_INPUT(nn), 0, 1) = (float)y / (out_height - 1);
             nn_forward(nn);
-            uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+            float a = MAT_AT(NN_OUTPUT(nn), 0, 0);
+            if (a < 0)
+                a = 0;
+            if (a > 1)
+                a = 1;
+            uint8_t pixel = a * 255.f;
             out_pixels[y * out_width + x] = pixel;
         }
     }
