@@ -18,5 +18,5 @@ CC="gcc"
 #$CC -O3 -o xor xor.c -lm
 #$CC -O3 -o dump_nn dump_nn.c -lm
 #$CC -o dump_nn dump_nn.c -lm
-#$CC $CFLAGS -o upscalenn upscalenn.c $LIBS
+$CC $CFLAGS -o upscalenn upscalenn.c $LIBS
 $CC $CFLAGS -o morph2nn morph2nn.c $LIBS

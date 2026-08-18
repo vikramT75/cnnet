@@ -276,9 +276,25 @@ int main(int argc, char **argv)
     Texture2D preview_texture3 = LoadTextureFromImage(preview_image3);
 
     Image original_image1 = GenImageColor(img1_width, img1_height, BLACK);
+    for (size_t y = 0; y < (size_t)img1_height; y++)
+    {
+        for (size_t x = 0; x < (size_t)img1_width; x++)
+        {
+            uint8_t pixel = img1_pixels[y * img1_width + x];
+            ImageDrawPixel(&original_image1, x, y, CLITERAL(Color){pixel, pixel, pixel, 255});
+        }
+    }
     Texture2D original_texture1 = LoadTextureFromImage(original_image1);
 
-    Image original_image2 = GenImageColor(img2_width, img1_height, BLACK);
+    Image original_image2 = GenImageColor(img2_width, img2_height, BLACK);
+    for (size_t y = 0; y < (size_t)img2_height; y++)
+    {
+        for (size_t x = 0; x < (size_t)img2_width; x++)
+        {
+            uint8_t pixel = img2_pixels[y * img2_width + x];
+            ImageDrawPixel(&original_image2, x, y, CLITERAL(Color){pixel, pixel, pixel, 255});
+        }
+    }
     Texture2D original_texture2 = LoadTextureFromImage(original_image2);
 
     size_t epoch = 0;
@@ -308,6 +324,36 @@ int main(int argc, char **argv)
             epoch = 0;
             nn_rand(nn, -1, 1);
             plot.count = 0;
+        }
+
+        if (IsKeyPressed(KEY_S))
+        {
+            size_t out_width = 512;
+            size_t out_height = 512;
+            uint8_t *out_pixels = malloc(sizeof(*out_pixels) * out_width * out_height);
+            assert(out_pixels != NULL);
+
+            for (size_t y = 0; y < out_height; y++)
+            {
+                for (size_t x = 0; x < out_width; x++)
+                {
+                    MAT_AT(NN_INPUT(nn), 0, 0) = (float)x / (out_width - 1);
+                    MAT_AT(NN_INPUT(nn), 0, 1) = (float)y / (out_height - 1);
+                    MAT_AT(NN_INPUT(nn), 0, 2) = scroll;
+                    nn_forward(nn);
+                    uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+                    out_pixels[y * out_width + x] = pixel;
+                }
+            }
+
+            char outbuffer[256];
+            snprintf(outbuffer, sizeof(outbuffer), "./mnist/output/morph.png");
+            if (!stbi_write_png(outbuffer, out_width, out_height, 1, out_pixels, out_width * sizeof(*out_pixels)))
+                fprintf(stderr, "ERROR : Could not save image as %s\n", outbuffer);
+            else
+                printf("Saved image %s\n", outbuffer);
+
+            free(out_pixels);
         }
 
         for (size_t i = 0; i < batches_per_frame && !paused && epoch < max_epoch; i++)
@@ -377,7 +423,7 @@ int main(int argc, char **argv)
         nn_render_raylib(nn, rx, ry, rw, rh);
         rx += rw;
 
-        float scale = 10.f;
+        float scale = 8.0f;
 
         for (size_t y = 0; y < preview_width; y++)
         {
@@ -419,20 +465,23 @@ int main(int argc, char **argv)
         }
 
         float padding = scale * 2.0f;
+        float start_y = ry - (img1_height * scale) * 0.3f;
 
         UpdateTexture(preview_texture1, preview_image1.data);
-        DrawTextureEx(preview_texture1, CLITERAL(Vector2){rx, ry - (img1_height * scale) * 0.3f}, 0, scale, WHITE);
+        DrawTextureEx(preview_texture1, CLITERAL(Vector2){rx, start_y}, 0, scale, WHITE);
+        DrawTextureEx(original_texture1, CLITERAL(Vector2){rx, start_y + preview_height * scale + padding}, 0, scale, WHITE);
 
         UpdateTexture(preview_texture2, preview_image2.data);
-        DrawTextureEx(preview_texture2, CLITERAL(Vector2){rx + img1_width * scale + padding, ry - (img2_height * scale) * 0.3f}, 0, scale, WHITE);
+        DrawTextureEx(preview_texture2, CLITERAL(Vector2){rx + img1_width * scale + padding, start_y}, 0, scale, WHITE);
+        DrawTextureEx(original_texture2, CLITERAL(Vector2){rx + img1_width * scale + padding, start_y + preview_height * scale + padding}, 0, scale, WHITE);
 
         UpdateTexture(preview_texture3, preview_image3.data);
-        DrawTextureEx(preview_texture3, CLITERAL(Vector2){rx + img1_width * scale * 0.5f + padding * 0.5f, ry + (img2_height * scale) * 1.05f}, 0, scale, WHITE);
+        DrawTextureEx(preview_texture3, CLITERAL(Vector2){rx + img1_width * scale * 0.5f + padding * 0.5f, start_y + preview_height * scale * 2 + padding * 5.2f}, 0, scale, WHITE);
 
         {
             Vector2 size = {img1_width * scale * 2 + padding, rh * 0.02f};
-            Vector2 pos = {rx, ry + (img1_height * scale) * 0.85f};
-            float slider_radius = rh * 0.025f;
+            Vector2 pos = {rx, start_y + preview_height * scale * 2 + padding * 3.0f};
+            float slider_radius = rh * 0.023f;
             Vector2 slider_pos = {rx + size.x * scroll, pos.y + size.y * 0.5f};
 
             DrawRectangleRounded(CLITERAL(Rectangle){pos.x, pos.y, size.x, size.y}, 0.5f, 10, RAYWHITE);
@@ -468,7 +517,7 @@ int main(int argc, char **argv)
         EndDrawing();
     }
 
-    for (size_t y = 0; y < (size_t)img1_height; y++)
+    /*for (size_t y = 0; y < (size_t)img1_height; y++)
     {
         for (size_t x = 0; x < (size_t)img1_width; x++)
         {
@@ -479,17 +528,17 @@ int main(int argc, char **argv)
                 printf("    ");
         }
         printf("\n");
-    }
+    }*/
 
     printf("\n\n");
 
-    for (size_t y = 0; y < (size_t)img1_height; y++)
+    for (size_t y = 0; y < (size_t)preview_height; y++)
     {
-        for (size_t x = 0; x < (size_t)img1_width; x++)
+        for (size_t x = 0; x < (size_t)preview_width; x++)
         {
             MAT_AT(NN_INPUT(nn), 0, 0) = (float)x / (img1_width - 1);
             MAT_AT(NN_INPUT(nn), 0, 1) = (float)y / (img1_height - 1);
-            MAT_AT(NN_INPUT(nn), 0, 2) = 0.0f;
+            MAT_AT(NN_INPUT(nn), 0, 2) = scroll;
             nn_forward(nn);
             uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
             if (pixel)
@@ -499,6 +548,8 @@ int main(int argc, char **argv)
         }
         printf("\n");
     }
+
+    printf("\n\n");
 
     size_t out_width = 512;
     size_t out_height = 512;
@@ -511,7 +562,7 @@ int main(int argc, char **argv)
         {
             MAT_AT(NN_INPUT(nn), 0, 0) = (float)x / (out_width - 1);
             MAT_AT(NN_INPUT(nn), 0, 1) = (float)y / (out_height - 1);
-            MAT_AT(NN_INPUT(nn), 0, 2) = 0.0f;
+            MAT_AT(NN_INPUT(nn), 0, 2) = scroll;
             nn_forward(nn);
             uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
             out_pixels[y * out_width + x] = pixel;
@@ -519,8 +570,9 @@ int main(int argc, char **argv)
     }
 
     char outbuffer[256];
-    snprintf(outbuffer, sizeof(outbuffer), "./mnist/output/upscaled%c.png", img1_file_path[strlen(img1_file_path) - 5]);
-    // snprintf(outbuffer, sizeof(outbuffer), "./mnist/output/upscaled.png");
+    snprintf(outbuffer, sizeof(outbuffer), "./mnist/output/morph.png");
+    // snprintf(outbuffer, sizeof(outbuffer), "./mnist/output/upscaled%c.png", img1_file_path[strlen(img1_file_path) - 5]);
+    //  snprintf(outbuffer, sizeof(outbuffer), "./mnist/output/upscaled.png");
 
     const char *out_file_path = outbuffer;
 

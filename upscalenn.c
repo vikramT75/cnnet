@@ -253,6 +253,36 @@ int main(int argc, char **argv)
             plot.count = 0;
         }
 
+        if (IsKeyPressed(KEY_S))
+        {
+            size_t out_width = 512;
+            size_t out_height = 512;
+            uint8_t *out_pixels = malloc(sizeof(*out_pixels) * out_width * out_height);
+            assert(out_pixels != NULL);
+
+            for (size_t y = 0; y < out_height; y++)
+            {
+                for (size_t x = 0; x < out_width; x++)
+                {
+                    MAT_AT(NN_INPUT(nn), 0, 0) = (float)x / (out_width - 1);
+                    MAT_AT(NN_INPUT(nn), 0, 1) = (float)y / (out_height - 1);
+                    nn_forward(nn);
+                    uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+                    out_pixels[y * out_width + x] = pixel;
+                }
+            }
+
+            char outbuffer[256];
+            snprintf(outbuffer, sizeof(outbuffer), "./mnist/output/upscaled%c.png", img_file_path[strlen(img_file_path) - 5]);
+
+            if (!stbi_write_png(outbuffer, out_width, out_height, 1, out_pixels, out_width * sizeof(*out_pixels)))
+                fprintf(stderr, "ERROR : Could not save image as %s\n", outbuffer);
+            else
+                printf("Saved image %s\n", outbuffer);
+
+            free(out_pixels);
+        }
+
         for (size_t i = 0; i < batches_per_frame && !paused && epoch < max_epoch; i++)
         {
             size_t size = batch_size;
@@ -369,6 +399,8 @@ int main(int argc, char **argv)
         }
         printf("\n");
     }
+
+    printf("\n\n");
 
     size_t out_width = 512;
     size_t out_height = 512;
