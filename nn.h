@@ -437,7 +437,7 @@ NN nn_backprop(Region *r, NN nn, Mat ti, Mat to)
         for (size_t j = 0; j < to.cols; j++)
         {
 #ifdef NN_BACKPROP_TRADITIONAL
-            MAT_AT(NN_OUTPUT(g), 0, j) = 2 * MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(to, i, j);
+            MAT_AT(NN_OUTPUT(g), 0, j) = 2 * (MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(to, i, j));
 #else
             MAT_AT(NN_OUTPUT(g), 0, j) = MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(to, i, j);
 #endif // NN_BACKPROP_TRADITIONAL

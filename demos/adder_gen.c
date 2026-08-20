@@ -1,5 +1,5 @@
 #include <time.h>
-#define NN_IMPLEMENTAION
+#define NN_IMPLEMENTATION
 #include "../nn.h"
 
 #define BITS 4
@@ -8,7 +8,7 @@ int main()
 {
     size_t n = (1 << BITS);
     size_t rows = n * n;
-    Mat t = mat_alloc(rows, 2 * BITS + BITS + 1);
+    Mat t = mat_alloc(NULL, rows, 2 * BITS + BITS + 1);
     Mat ti = {
         .es = &MAT_AT(t, 0, 0),
         .rows = t.rows,

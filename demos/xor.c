@@ -8,41 +8,36 @@
 #define NN_UI_IMPLEMENTATION
 #include "../nn_ui.h"
 
-#define BITS 4
-
 #define IMG_FACTOR 80
 #define IMG_WIDTH (16 * IMG_FACTOR)
 #define IMG_HEIGHT (9 * IMG_FACTOR)
 
-size_t max_epoch = 10000;
-size_t batches_per_frame = 20;
-size_t batch_size = (1 << BITS) * (1 << BITS);
+size_t max_epoch = 20000;
+size_t batches_per_frame = 100;
+size_t batch_size = 4;
 bool paused = true;
-float rate = 1.0f;
-size_t arch[] = {2 * BITS, 4 * BITS, BITS + 1};
+float rate = 1.f;
+size_t arch[] = {2, 4, 1};
 
 int main()
 {
-    InitWindow(IMG_WIDTH, IMG_HEIGHT, "Adder NN");
+    InitWindow(IMG_WIDTH, IMG_HEIGHT, "XOR NN");
     SetTargetFPS(120);
 
     srand(time(0));
-    size_t n = (1 << BITS);
-    size_t rows = n * n;
-    Mat t = mat_alloc(NULL, rows, 2 * BITS + BITS + 1);
 
-    for (size_t i = 0; i < t.rows; i++)
+    size_t rows = 4;
+    Mat t = mat_alloc(NULL, rows, 3);
+
+    for (size_t i = 0; i < 2; i++)
     {
-        size_t x = i / n;
-        size_t y = i % n;
-        size_t z = x + y;
-        for (size_t j = 0; j < BITS; j++)
+        for (size_t j = 0; j < 2; j++)
         {
-            MAT_AT(t, i, j) = (x >> j) & 1;
-            MAT_AT(t, i, j + BITS) = (y >> j) & 1;
-            MAT_AT(t, i, 2 * BITS + j) = (z >> j) & 1;
+            size_t row = i * 2 + j;
+            MAT_AT(t, row, 0) = i;
+            MAT_AT(t, row, 1) = j;
+            MAT_AT(t, row, 2) = i ^ j;
         }
-        MAT_AT(t, i, 2 * BITS + BITS) = z >= n;
     }
 
     Region temp = region_alloc_allocator(256 * 1024 * 1024);
@@ -95,7 +90,7 @@ int main()
 
         int rw, rh, rx, ry;
 
-        rw = w / 2;
+        rw = w / 3;
         rh = h * 2 / 3;
         rx = 0;
         ry = h / 2 - rh / 2;
@@ -111,33 +106,52 @@ int main()
         rx += rw;
         nn_render_raylib(nn, rx, ry, rw, rh);
 
+        rx += rw;
+
+        int text_x = rx + rw * 0.1;
+        int text_y = ry + rh * 0.2;
+        int row_height = h * 0.1;
+        int table_font_size = h * 0.05;
+
+        DrawText("Truth Table", text_x, text_y - row_height, table_font_size * 1.2, GREEN);
+
+        for (size_t x = 0; x < 2; x++)
+        {
+            for (size_t y = 0; y < 2; y++)
+            {
+                MAT_AT(NN_INPUT(nn), 0, 0) = x;
+                MAT_AT(NN_INPUT(nn), 0, 1) = y;
+                nn_forward(nn);
+                float out = MAT_AT(NN_OUTPUT(nn), 0, 0);
+                char txt[256];
+                snprintf(txt, sizeof(txt), "%zu ^ %zu = %.4f", x, y, out);
+
+                Color c = WHITE;
+                if (out > 0.9f && (x ^ y) == 1)
+                    c = GREEN;
+                else if (out < 0.1f && (x ^ y) == 0)
+                    c = GREEN;
+                else
+                    c = RED;
+
+                DrawText(txt, text_x, text_y, table_font_size, c);
+                text_y += row_height;
+            }
+        }
+
         EndDrawing();
         region_reset(&temp);
     }
 
-    for (size_t x = 0; x < n; x++)
+    printf("FINAL PREDICTIONS:\n");
+    for (size_t x = 0; x < 2; x++)
     {
-        for (size_t y = 0; y < n; y++)
+        for (size_t y = 0; y < 2; y++)
         {
-            printf("%zu + %zu = ", x, y);
-            for (size_t j = 0; j < BITS; j++)
-            {
-                MAT_AT(NN_INPUT(nn), 0, j) = (x >> j) & 1;
-                MAT_AT(NN_INPUT(nn), 0, j + BITS) = (y >> j) & 1;
-            }
+            MAT_AT(NN_INPUT(nn), 0, 0) = x;
+            MAT_AT(NN_INPUT(nn), 0, 1) = y;
             nn_forward(nn);
-            if (MAT_AT(NN_OUTPUT(nn), 0, BITS) > 0.5f)
-                printf("OVERFLOW\n");
-            else
-            {
-                size_t z = 0;
-                for (size_t j = 0; j < BITS; j++)
-                {
-                    size_t bit = MAT_AT(NN_OUTPUT(nn), 0, j) > 0.5f;
-                    z |= bit << j;
-                }
-                printf("%zu\n", z);
-            }
+            printf("%zu ^ %zu = %f\n", x, y, MAT_AT(NN_OUTPUT(nn), 0, 0));
         }
     }
 

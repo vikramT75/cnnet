@@ -3,7 +3,7 @@
 
 int main()
 {
-    Mat t = mat_alloc(4, 3);
+    Mat t = mat_alloc(NULL, 4, 3);
 
     for (size_t i = 0; i < 2; i++)
     {
