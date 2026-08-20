@@ -6,6 +6,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdbool.h>
 
 // #define NN_BACKPROP_TRADITIONAL
 #ifndef NN_ACT
@@ -43,6 +44,13 @@ typedef struct
     float *es;
 } Mat;
 
+typedef struct
+{
+    size_t capacity;
+    size_t size;
+    uintptr_t *words;
+} Region;
+
 #define MAT_AT(m, i, j) (m).es[(i) * (m).stride + (j)]
 
 float rand_float();
@@ -50,9 +58,9 @@ float sigmoidf(float);
 float reluf(float);
 float tanhf(float);
 
-Mat mat_alloc(size_t rows, size_t cols);
+Mat mat_alloc(Region *r, size_t rows, size_t cols);
 Mat mat_save(FILE *out, Mat m);
-Mat mat_load(FILE *in);
+Mat mat_load(Region *r, FILE *in);
 void mat_rand(Mat m, float low, float high);
 void mat_fill(Mat m, float x);
 Mat mat_row(Mat m, size_t row);
@@ -64,31 +72,47 @@ void mat_print(Mat m, const char *name, size_t padding);
 void mat_shuffle_rows(Mat m);
 #define MAT_PRINT(m) mat_print(m, #m, 0)
 
+Region region_alloc_allocator(size_t capacity_bytes);
+void *region_alloc(Region *r, size_t size_bytes);
+#define region_reset(r) (NN_ASSERT((r) != NULL), (r)->size = 0)
+
 typedef struct
 {
-    size_t count;
-    Mat *ws;
-    Mat *bs;
-    Mat *as; // n(activation nodes) = count + 1
+    size_t *arch;
+    size_t arch_count;
+    Mat *ws; // n(activation nodes) = arch_count -1
+    Mat *bs; // n(activation nodes) = arch_count -1
+    Mat *as;
 
 } NN;
 
-#define NN_INPUT(nn) (nn).as[0]
-#define NN_OUTPUT(nn) (nn).as[((nn).count)]
+#define NN_INPUT(nn) (NN_ASSERT((nn).arch_count > 0), (nn).as[0])
+#define NN_OUTPUT(nn) (NN_ASSERT((nn).arch_count > 0), (nn).as[((nn).arch_count - 1)])
 
-NN nn_alloc(size_t *arch, size_t arch_count);
+NN nn_alloc(Region *r, size_t *arch, size_t arch_count);
 void nn_zero(NN nn);
 void nn_print(NN nn, const char *name);
 #define NN_PRINT(nn) nn_print(nn, #nn);
 void nn_rand(NN nn, float low, float high);
 void nn_forward(NN nn);
 float nn_cost(NN nn, Mat ti, Mat to);
-void nn_finite_diff(NN nn, NN g, float eps, Mat ti, Mat to);
-void nn_backprop(NN nn, NN g, Mat ti, Mat to);
+NN nn_finite_diff(Region *r, NN nn, Mat ti, Mat to, float eps);
+NN nn_backprop(Region *r, NN nn, Mat ti, Mat to);
 void nn_learn(NN nn, NN g, float rate);
+
+typedef struct
+{
+    size_t begin;
+    float cost;
+    bool finished;
+} Batch;
+
+void batch_process(Region *r, Batch *b, size_t batch_size, NN nn, Mat t, float rate);
 
 #endif
 #ifdef NN_IMPLEMENTATION
+#ifndef NN_IMPLEMENTATION_DONE
+#define NN_IMPLEMENTATION_DONE
 
 float rand_float()
 {
@@ -112,13 +136,13 @@ float tanhf(float x)
     return (ex - enx) / (ex + enx);
 }
 
-Mat mat_alloc(size_t rows, size_t cols)
+Mat mat_alloc(Region *r, size_t rows, size_t cols)
 {
     Mat m;
     m.rows = rows;
     m.cols = cols;
     m.stride = cols;
-    m.es = NN_MALLOC(sizeof(*m.es) * rows * cols);
+    m.es = region_alloc(r, sizeof(*m.es) * rows * cols);
     NN_ASSERT(m.es != NULL);
     return m;
 }
@@ -139,7 +163,7 @@ Mat mat_save(FILE *out, Mat m)
         }
     }
 }
-Mat mat_load(FILE *in)
+Mat mat_load(Region *r, FILE *in)
 {
     uint64_t magic;
     fread(&magic, sizeof(magic), 1, in);
@@ -149,7 +173,7 @@ Mat mat_load(FILE *in)
     size_t rows, cols;
     fread(&rows, sizeof(rows), 1, in);
     fread(&cols, sizeof(cols), 1, in);
-    Mat m = mat_alloc(rows, cols);
+    Mat m = mat_alloc(r, rows, cols);
 
     size_t n = fread(m.es, sizeof(*m.es), rows * cols, in);
     while (n < rows * cols && !ferror(in))
@@ -289,25 +313,27 @@ void mat_shuffle_rows(Mat m)
     }
 }
 
-NN nn_alloc(size_t *arch, size_t arch_count)
+NN nn_alloc(Region *r, size_t *arch, size_t arch_count)
 {
     NN_ASSERT(arch_count > 0);
-    NN nn;
-    nn.count = arch_count - 1;
 
-    nn.ws = NN_MALLOC(sizeof(*nn.ws) * nn.count);
+    NN nn;
+    nn.arch = arch;
+    nn.arch_count = arch_count;
+
+    nn.ws = region_alloc(r, sizeof(*nn.ws) * (nn.arch_count - 1));
     NN_ASSERT(nn.ws != NULL);
-    nn.bs = NN_MALLOC(sizeof(*nn.bs) * nn.count);
+    nn.bs = region_alloc(r, sizeof(*nn.bs) * (nn.arch_count - 1));
     NN_ASSERT(nn.bs != NULL);
-    nn.as = NN_MALLOC(sizeof(*nn.as) * arch_count);
+    nn.as = region_alloc(r, sizeof(*nn.as) * nn.arch_count);
     NN_ASSERT(nn.as != NULL);
 
-    nn.as[0] = mat_alloc(1, arch[0]);
+    nn.as[0] = mat_alloc(r, 1, arch[0]);
     for (size_t i = 1; i < arch_count; i++)
     {
-        nn.ws[i - 1] = mat_alloc(nn.as[i - 1].cols, arch[i]);
-        nn.bs[i - 1] = mat_alloc(1, arch[i]);
-        nn.as[i] = mat_alloc(1, arch[i]);
+        nn.ws[i - 1] = mat_alloc(r, nn.as[i - 1].cols, arch[i]);
+        nn.bs[i - 1] = mat_alloc(r, 1, arch[i]);
+        nn.as[i] = mat_alloc(r, 1, arch[i]);
     }
 
     return nn;
@@ -315,13 +341,13 @@ NN nn_alloc(size_t *arch, size_t arch_count)
 
 void nn_zero(NN nn)
 {
-    for (size_t i = 0; i < nn.count; i++)
+    for (size_t i = 0; i < nn.arch_count - 1; i++)
     {
         mat_fill(nn.ws[i], 0.f);
         mat_fill(nn.bs[i], 0.f);
         mat_fill(nn.as[i], 0.f);
     }
-    mat_fill(nn.as[nn.count], 0.f);
+    mat_fill(nn.as[nn.arch_count - 1], 0.f);
 }
 
 void nn_print(NN nn, const char *name)
@@ -329,7 +355,7 @@ void nn_print(NN nn, const char *name)
     char buf[256];
     printf("%s = [\n", name);
 
-    for (size_t i = 0; i < nn.count; i++)
+    for (size_t i = 0; i < nn.arch_count - 1; i++)
     {
         snprintf(buf, sizeof(buf), "ws%zu", i);
         mat_print(nn.ws[i], buf, 4);
@@ -341,7 +367,7 @@ void nn_print(NN nn, const char *name)
 
 void nn_rand(NN nn, float low, float high)
 {
-    for (size_t i = 0; i < nn.count; i++)
+    for (size_t i = 0; i < nn.arch_count - 1; i++)
     {
         mat_rand(nn.ws[i], low, high);
         mat_rand(nn.bs[i], low, high);
@@ -350,7 +376,7 @@ void nn_rand(NN nn, float low, float high)
 
 void nn_forward(NN nn) // X ⋅ W + B
 {
-    for (size_t i = 0; i < nn.count; i++)
+    for (size_t i = 0; i < nn.arch_count - 1; i++)
     {
         mat_dot(nn.as[i + 1], nn.as[i], nn.ws[i]);
         mat_sum(nn.as[i + 1], nn.bs[i]);
@@ -383,11 +409,13 @@ float nn_cost(NN nn, Mat ti, Mat to)
     return c / n;
 }
 
-void nn_backprop(NN nn, NN g, Mat ti, Mat to)
+NN nn_backprop(Region *r, NN nn, Mat ti, Mat to)
 {
     NN_ASSERT(ti.rows == to.rows);
     size_t n = ti.rows;
     NN_ASSERT(NN_OUTPUT(nn).cols == to.cols);
+
+    NN g = nn_alloc(r, nn.arch, nn.arch_count);
 
     nn_zero(g);
 
@@ -401,7 +429,7 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
         mat_copy(NN_INPUT(nn), mat_row(ti, i));
         nn_forward(nn);
 
-        for (size_t j = 0; j <= nn.count; j++)
+        for (size_t j = 0; j < nn.arch_count; j++)
         {
             mat_fill(g.as[j], 0.f);
         }
@@ -422,7 +450,7 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
         s = 2;
 #endif // NN_BACKPROP_TRADITIONAL
 
-        for (size_t l = nn.count; l > 0; l--)
+        for (size_t l = nn.arch_count - 1; l > 0; l--)
         {
             for (size_t j = 0; j < nn.as[l].cols; j++)
             {
@@ -458,7 +486,7 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
         }
     }
 
-    for (size_t i = 0; i < g.count; i++)
+    for (size_t i = 0; i < g.arch_count - 1; i++)
     {
         for (size_t j = 0; j < g.ws[i].rows; j++)
         {
@@ -467,10 +495,7 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
                 MAT_AT(g.ws[i], j, k) /= n;
             }
         }
-    }
 
-    for (size_t i = 0; i < g.count; i++)
-    {
         for (size_t j = 0; j < g.bs[i].rows; j++)
         {
             for (size_t k = 0; k < g.bs[i].cols; k++)
@@ -479,14 +504,18 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
             }
         }
     }
+    return g;
 }
 
-void nn_finite_diff(NN nn, NN g, float eps, Mat ti, Mat to)
+NN nn_finite_diff(Region *r, NN nn, Mat ti, Mat to, float eps)
 {
     float saved;
-
     float c = nn_cost(nn, ti, to);
-    for (size_t i = 0; i < nn.count; i++)
+
+    NN g = nn_alloc(r, nn.arch, nn.arch_count);
+    nn_zero(g);
+
+    for (size_t i = 0; i < nn.arch_count - 1; i++)
     {
         for (size_t j = 0; j < nn.ws[i].rows; j++)
         {
@@ -510,11 +539,12 @@ void nn_finite_diff(NN nn, NN g, float eps, Mat ti, Mat to)
             }
         }
     }
+    return g;
 }
 
 void nn_learn(NN nn, NN g, float rate)
 {
-    for (size_t i = 0; i < nn.count; i++)
+    for (size_t i = 0; i < nn.arch_count - 1; i++)
     {
         for (size_t j = 0; j < nn.ws[i].rows; j++)
         {
@@ -533,4 +563,80 @@ void nn_learn(NN nn, NN g, float rate)
     }
 }
 
+void batch_process(Region *r, Batch *b, size_t batch_size, NN nn, Mat t, float rate)
+{
+    if (b->finished)
+    {
+        b->finished = false;
+        b->begin = 0;
+        b->cost = 0;
+    }
+
+    size_t size = batch_size;
+    if (b->begin + batch_size >= t.rows)
+    {
+        size = t.rows - b->begin;
+    }
+
+    Mat batch_ti = {
+        .rows = size,
+        .cols = NN_INPUT(nn).cols,
+        .stride = t.stride,
+        .es = &MAT_AT(t, b->begin, 0),
+    };
+
+    Mat batch_to = {
+        .rows = size,
+        .cols = NN_OUTPUT(nn).cols,
+        .stride = t.stride,
+        .es = &MAT_AT(t, b->begin, batch_ti.cols),
+    };
+
+    NN g = nn_backprop(r, nn, batch_ti, batch_to);
+    nn_learn(nn, g, rate);
+    b->cost += nn_cost(nn, batch_ti, batch_to);
+    b->begin += batch_size;
+
+    if (b->begin >= t.rows)
+    {
+        size_t batch_count = (t.rows + batch_size - 1) / batch_size;
+        b->cost /= batch_count;
+        b->finished = true;
+    }
+}
+
+Region region_alloc_allocator(size_t capacity_bytes)
+{
+    Region r = {0};
+
+    size_t word_size = sizeof(*r.words);
+    size_t capacity_words = (capacity_bytes + word_size - 1) / word_size;
+
+    void *words = NN_MALLOC(capacity_words * word_size);
+    NN_ASSERT(words != NULL);
+
+    r.capacity = capacity_words;
+    r.words = words;
+    return r;
+}
+
+void *region_alloc(Region *r, size_t size_bytes)
+{
+    if (r == NULL)
+        return NN_MALLOC(size_bytes);
+
+    // Aligning memory access to nearest multiple of a word
+    size_t word_size = sizeof(*r->words);
+    size_t word_num = (size_bytes + word_size - 1) / word_size;
+
+    NN_ASSERT(r->size + word_num <= r->capacity);
+    if (r->size + word_num > r->capacity)
+        return NULL;
+
+    void *result = &r->words[r->size];
+    r->size += word_num;
+    return result;
+}
+
+#endif // NN_IMPLEMENTATION_DONE
 #endif // NN_IMPLEMENTATION
