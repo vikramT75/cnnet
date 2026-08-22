@@ -206,9 +206,13 @@ void mat_dot(Mat dst, Mat a, Mat b)
         for (size_t j = 0; j < dst.cols; j++)
         {
             MAT_AT(dst, i, j) = 0;
-            for (size_t k = 0; k < n; k++)
+        }
+        for (size_t k = 0; k < n; k++)
+        {
+            float a_ik = MAT_AT(a, i, k);
+            for (size_t j = 0; j < dst.cols; j++)
             {
-                MAT_AT(dst, i, j) += MAT_AT(a, i, k) * MAT_AT(b, k, j);
+                MAT_AT(dst, i, j) += a_ik * MAT_AT(b, k, j);
             }
         }
     }
@@ -472,16 +476,31 @@ NN nn_backprop(Region *r, NN nn, Mat ti, Mat to)
                 default:
                     NN_ASSERT(0 && "UNREACHABLE");
                 }
-                MAT_AT(g.bs[l - 1], 0, j) += s * da * q;
-                for (size_t k = 0; k < nn.as[l - 1].cols; k++)
+                // NN_CROSS_ENTROPY: for the output layer only, skip the activation derivative
+                // Hidden layers always use the full delta = s * da * q.
+#ifdef NN_CROSS_ENTROPY
+                float delta = (l == nn.arch_count - 1) ? da : s * da * q;
+#else
+                float delta = s * da * q;
+#endif
+                MAT_AT(g.bs[l - 1], 0, j) += delta;
+                MAT_AT(g.as[l], 0, j) = delta; // reuse g.as[l] to store delta
+            }
+
+            for (size_t k = 0; k < nn.as[l - 1].cols; k++)
+            {
+                float pa = MAT_AT(nn.as[l - 1], 0, k);
+                float sum = 0.f;
+                for (size_t j = 0; j < nn.as[l].cols; j++)
                 {
                     // j - weight matrix col
                     // k - weight matrix row
-                    float pa = MAT_AT(nn.as[l - 1], 0, k);
+                    float delta = MAT_AT(g.as[l], 0, j);
                     float w = MAT_AT(nn.ws[l - 1], k, j);
-                    MAT_AT(g.ws[l - 1], k, j) += s * da * q * pa;
-                    MAT_AT(g.as[l - 1], 0, k) += s * da * q * w;
+                    MAT_AT(g.ws[l - 1], k, j) += delta * pa;
+                    sum += delta * w;
                 }
+                MAT_AT(g.as[l - 1], 0, k) += sum;
             }
         }
     }

@@ -24,7 +24,6 @@ size_t batches_per_frame = 100;
 size_t batch_size = 28;
 bool paused = true;
 float rate = 1.0f;
-Arch arch = {0};
 
 typedef struct
 {
@@ -32,6 +31,8 @@ typedef struct
     size_t count;
     size_t capacity;
 } Arch;
+
+Arch arch = {0};
 
 char *args_shift(int *argc, char ***argv)
 {

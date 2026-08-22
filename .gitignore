@@ -6,3 +6,15 @@ adder_gen
 xor
 xor_gen
 train
+
+# Binaries
+demos/infer
+demos/trainer
+demos/shape_gen
+demos/mnist_gen
+
+# Datasets
+*.mat
+mnist/testing/
+mnist/training/
+
