@@ -1,5 +1,5 @@
 // Usage:
-//   ./demos/trainer <model.arch> <train.mat> <test.mat> <max_epochs>
+//   ./demos/trainer <demos/models/model.arch> <demos/data/train.mat> <demos/data/test.mat> <max_epochs>
 
 #include <stdio.h>
 #include <stdlib.h>

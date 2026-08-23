@@ -135,12 +135,12 @@ int main(void)
 
     Mat train = mat_alloc(NULL, NUM_TRAIN, NUM_COLS);
     fill_dataset(train, NUM_TRAIN);
-    if (!write_dataset(train, "demos/shapes_train.mat"))
+    if (!write_dataset(train, "demos/data/shapes_train.mat"))
         return 1;
 
     Mat test = mat_alloc(NULL, NUM_TEST, NUM_COLS);
     fill_dataset(test, NUM_TEST);
-    if (!write_dataset(test, "demos/shapes_test.mat"))
+    if (!write_dataset(test, "demos/data/shapes_test.mat"))
         return 1;
 
     printf("Done.\n");

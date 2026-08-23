@@ -1,5 +1,5 @@
 // Usage:
-//   ./demos/infer <model.arch> <model.arch.weights.mat> <labels.label>
+//   ./demos/infer <demos/models/model.arch> <demos/data/weights.mat> <demos/models/labels.label>
 
 #include <stdio.h>
 #include <stdlib.h>

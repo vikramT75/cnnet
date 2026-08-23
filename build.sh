@@ -28,9 +28,9 @@ $CC -O3 -march=native -ffast-math -o demos/shape_gen demos/shape_gen.c -lm
 $CC -O3 -march=native -ffast-math -o demos/mnist_gen demos/mnist_gen.c -lm
 # Usage:
 #   ./demos/shape_gen
-#   ./demos/mnist_gen mnist/training/ demos/mnist_train.mat
-#   ./demos/mnist_gen mnist/testing/  demos/mnist_test.mat
-#   ./demos/infer demos/mnist.arch demos/mnist.arch.weights.mat demos/mnist.labels
-#   ./demos/infer demos/shapes.arch demos/shapes.arch.weights.mat demos/shapes.labels
+#   ./demos/mnist_gen mnist/training/ demos/data/mnist_train.mat
+#   ./demos/mnist_gen mnist/testing/  demos/data/mnist_test.mat
+#   ./demos/infer demos/models/mnist.arch demos/data/mnist.arch.weights.mat demos/models/mnist.labels
+#   ./demos/infer demos/models/shapes.arch demos/data/shapes.arch.weights.mat demos/models/shapes.labels
 $CC -O3 -march=native -ffast-math -o demos/trainer demos/trainer.c -lm
 $CC $CFLAGS -o demos/infer demos/infer.c $LIBS

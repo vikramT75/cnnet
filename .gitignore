@@ -14,7 +14,7 @@ demos/shape_gen
 demos/mnist_gen
 
 # Datasets
-*.mat
+demos/data/*.mat
 mnist/testing/
 mnist/training/
 
