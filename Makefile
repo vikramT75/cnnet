@@ -91,7 +91,7 @@ train-shapes: $(BUILD_DIR)/classifier_train
 	./$(BUILD_DIR)/classifier_train demos/models/shapes.arch demos/data/shapes_train.mat demos/data/shapes_test.mat $(EPOCHS) $(RESET_WEIGHTS)
 
 infer-mnist: $(BUILD_DIR)/classifier_infer
-	./$(BUILD_DIR)/classifier_infer demos/models/mnist.arch demos/data/mnist.arch.weights.mat demos/models/mnist.labels
+	./$(BUILD_DIR)/classifier_infer demos/models/mnist.arch demos/models/mnist.arch.weights.mat demos/models/mnist.labels
 
 infer-shapes: $(BUILD_DIR)/classifier_infer
-	./$(BUILD_DIR)/classifier_infer demos/models/shapes.arch demos/data/shapes.arch.weights.mat demos/models/shapes.labels
+	./$(BUILD_DIR)/classifier_infer demos/models/shapes.arch demos/models/shapes.arch.weights.mat demos/models/shapes.labels

@@ -230,8 +230,8 @@ int main(int argc, char **argv)
                 Color color = IsMouseButtonDown(MOUSE_BUTTON_LEFT) ? WHITE : BLACK;
 
                 int icx = (int)cx, icy = (int)cy;
-                for (int dy = -1; dy <= 1; dy++)
-                    for (int dx = -1; dx <= 1; dx++)
+                for (int dy = 0; dy <= 1; dy++)
+                    for (int dx = 0; dx <= 1; dx++)
                         ImageDrawPixel(&canvas_img, icx + dx, icy + dy, color);
             }
             prev_mouse = mouse;

@@ -54,13 +54,29 @@ static int point_in_triangle(float px, float py,
 
 static void generate_sample(float pixels[NUM_INPUTS], int class_id)
 {
-    float r = randf_range(5.0f, 10.0f);
-    float cx = randf_range(r + 1.0f, IMG_SIZE - r - 1.0f);
-    float cy = randf_range(r + 1.0f, IMG_SIZE - r - 1.0f);
-    
+    float target_size = randf_range(10.0f, 22.0f);
+    float r;
+
+    if (class_id == CLASS_TRIANGLE)
+    {
+        r = target_size / 1.73205081f;
+    }
+    else
+    {
+        r = target_size / 2.0f;
+    }
+
+    float cx = randf_range(14.0f - (24.0f - target_size) / 2.0f, 14.0f + (24.0f - target_size) / 2.0f);
+    float cy = randf_range(14.0f - (24.0f - target_size) / 2.0f, 14.0f + (24.0f - target_size) / 2.0f);
+
     float theta = randf_range(0.0f, 2.0f * PI);
     float c_theta = cosf(theta);
     float s_theta = sinf(theta);
+
+    int is_hollow = (rand() % 2 == 0);
+    float inner_r = r - randf_range(1.5f, 3.0f);
+    if (inner_r < 1.0f)
+        inner_r = 1.0f;
 
     for (int y = 0; y < IMG_SIZE; y++)
     {
@@ -72,8 +88,7 @@ static void generate_sample(float pixels[NUM_INPUTS], int class_id)
 
             float dx = px - cx;
             float dy = py - cy;
-            
-            // Rotate the point backwards around the center
+
             float rdx = dx * c_theta - dy * s_theta;
             float rdy = dx * s_theta + dy * c_theta;
 
@@ -81,28 +96,66 @@ static void generate_sample(float pixels[NUM_INPUTS], int class_id)
             {
             case CLASS_CIRCLE:
             {
-                inside = (dx * dx + dy * dy) <= (r * r);
+                int outer = (dx * dx + dy * dy) <= (r * r);
+                int inner = (dx * dx + dy * dy) <= (inner_r * inner_r);
+                inside = is_hollow ? (outer && !inner) : outer;
             }
             break;
 
             case CLASS_SQUARE:
             {
-                inside = (fabsf(rdx) <= r) & (fabsf(rdy) <= r);
+                int outer = (fabsf(rdx) <= r) & (fabsf(rdy) <= r);
+                int inner = (fabsf(rdx) <= inner_r) & (fabsf(rdy) <= inner_r);
+                inside = is_hollow ? (outer && !inner) : outer;
             }
             break;
 
             case CLASS_TRIANGLE:
             {
-                float tx0 = 0.0f, ty0 = -r;
-                float tx1 = -r, ty1 = r;
-                float tx2 = r, ty2 = r;
-                inside = point_in_triangle(rdx, rdy, tx0, ty0, tx1, ty1, tx2, ty2);
+                float sqrt3 = 1.73205081f;
+                float bx0 = 0.0f, by0 = -r;
+                float bx1 = -r * sqrt3 / 2.0f, by1 = r / 2.0f;
+                float bx2 = r * sqrt3 / 2.0f, by2 = r / 2.0f;
+
+                float rx0 = bx0 * c_theta - by0 * s_theta;
+                float ry0 = bx0 * s_theta + by0 * c_theta;
+                float rx1 = bx1 * c_theta - by1 * s_theta;
+                float ry1 = bx1 * s_theta + by1 * c_theta;
+                float rx2 = bx2 * c_theta - by2 * s_theta;
+                float ry2 = bx2 * s_theta + by2 * c_theta;
+
+                float min_x = fminf(fminf(rx0, rx1), rx2);
+                float max_x = fmaxf(fmaxf(rx0, rx1), rx2);
+                float min_y = fminf(fminf(ry0, ry1), ry2);
+                float max_y = fmaxf(fmaxf(ry0, ry1), ry2);
+
+                float bbc_x = (min_x + max_x) / 2.0f;
+                float bbc_y = (min_y + max_y) / 2.0f;
+
+                float tx0 = rx0 - bbc_x, ty0 = ry0 - bbc_y;
+                float tx1 = rx1 - bbc_x, ty1 = ry1 - bbc_y;
+                float tx2 = rx2 - bbc_x, ty2 = ry2 - bbc_y;
+
+                int outer = point_in_triangle(dx, dy, tx0, ty0, tx1, ty1, tx2, ty2);
+
+                float f = inner_r / r;
+                float cx_cc = -bbc_x;
+                float cy_cc = -bbc_y;
+
+                float ix0 = cx_cc + f * (tx0 - cx_cc);
+                float iy0 = cy_cc + f * (ty0 - cy_cc);
+                float ix1 = cx_cc + f * (tx1 - cx_cc);
+                float iy1 = cy_cc + f * (ty1 - cy_cc);
+                float ix2 = cx_cc + f * (tx2 - cx_cc);
+                float iy2 = cy_cc + f * (ty2 - cy_cc);
+
+                int inner = point_in_triangle(dx, dy, ix0, iy0, ix1, iy1, ix2, iy2);
+                inside = is_hollow ? (outer && !inner) : outer;
             }
             break;
             }
 
             float val = inside ? randf_range(0.80f, 1.00f) : randf_range(0.00f, 0.12f);
-
             pixels[y * IMG_SIZE + x] = val;
         }
     }
