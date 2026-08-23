@@ -238,7 +238,7 @@ int main(int argc, char **argv)
             }
 
             char outbuffer[256];
-            snprintf(outbuffer, sizeof(outbuffer), "./mnist/output/morph.png");
+            snprintf(outbuffer, sizeof(outbuffer), "./build/morph.png");
             if (!stbi_write_png(outbuffer, out_width, out_height, 1, out_pixels, out_width * sizeof(*out_pixels)))
                 fprintf(stderr, "ERROR : Could not save image as %s\n", outbuffer);
             else
@@ -449,9 +449,9 @@ int main(int argc, char **argv)
     }
 
     char outbuffer[256];
-    snprintf(outbuffer, sizeof(outbuffer), "./mnist/output/morph.png");
-    // snprintf(outbuffer, sizeof(outbuffer), "./mnist/output/upscaled%c.png", img1_file_path[strlen(img1_file_path) - 5]);
-    //  snprintf(outbuffer, sizeof(outbuffer), "./mnist/output/upscaled.png");
+    snprintf(outbuffer, sizeof(outbuffer), "./build/morph.png");
+    // snprintf(outbuffer, sizeof(outbuffer), "./build/upscaled%c.png", img1_file_path[strlen(img1_file_path) - 5]);
+    //  snprintf(outbuffer, sizeof(outbuffer), "./build/upscaled.png");
 
     const char *out_file_path = outbuffer;
 
