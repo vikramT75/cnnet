@@ -258,13 +258,13 @@ int main(int argc, char **argv)
         BeginDrawing();
         ClearBackground((Color){0x18, 0x18, 0x18, 0xFF});
 
-        int hdr_fs = (int)(H * 0.028f);
+        int hdr_fs = (int)(H * 0.035f);
         if (hdr_fs < 10)
             hdr_fs = 10;
         DrawText("Left=Draw  Right=Erase  [C]=Clear  |  Draw large & centered for best results",
                  8, 10, hdr_fs, WHITE);
 
-        DrawText("Your drawing", canvas_x, ry - hdr_fs - 2, hdr_fs, GRAY);
+        DrawText("Your drawing", canvas_x, canvas_y - hdr_fs - 5, hdr_fs, GRAY);
         DrawRectangle(canvas_x - 2, canvas_y - 2, canvas_draw_size + 4, canvas_draw_size + 4, DARKGRAY);
         DrawTexturePro(canvas_tex,
                        (Rectangle){0, 0, CANVAS_SIZE, CANVAS_SIZE},
@@ -273,7 +273,7 @@ int main(int argc, char **argv)
 
         int px = col_w + (col_w - canvas_draw_size) / 2;
         int py = canvas_y;
-        DrawText("NN input (centered)", col_w + (col_w - canvas_draw_size) / 2, ry - hdr_fs - 2, hdr_fs, GRAY);
+        DrawText("NN input (centered)", col_w + (col_w - canvas_draw_size) / 2, py - hdr_fs - 5, hdr_fs, GRAY);
         DrawRectangle(px - 2, py - 2, canvas_draw_size + 4, canvas_draw_size + 4, DARKGRAY);
         DrawTexturePro(processed_tex,
                        (Rectangle){0, 0, CANVAS_SIZE, CANVAS_SIZE},
