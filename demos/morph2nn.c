@@ -2,16 +2,16 @@
 #include <assert.h>
 #include <float.h>
 
-#include "./thirdparty/stb_image.h"       // STB_IMAGE_IMPLEMENTATION
-#include "./thirdparty/stb_image_write.h" // AND STB_IMAGE_WRIE_IMPLEMENTATION already in raylib lib.
+#include "../thirdparty/stb_image.h"       // STB_IMAGE_IMPLEMENTATION
+#include "../thirdparty/stb_image_write.h" // AND STB_IMAGE_WRIE_IMPLEMENTATION already in raylib lib.
 
 #define NN_ACT ACT_SIG
 // #define NN_BACKPROP_TRADITIONAL
 #define NN_IMPLEMENTATION
-#include "nn.h"
+#include "../nn.h"
 
 #define NN_UI_IMPLEMENTATION
-#include "nn_ui.h"
+#include "../nn_ui.h"
 
 size_t arch[] = {3, 10, 10, 4, 1};
 size_t max_epoch = 100 * 1000;

@@ -34,10 +34,10 @@ $(BUILD_DIR)/mnist_gen: demos/mnist_gen.c | $(BUILD_DIR)
 $(BUILD_DIR)/shape_gen: demos/shape_gen.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $< -lm
 
-$(BUILD_DIR)/morph2nn: morph2nn.c | $(BUILD_DIR)
+$(BUILD_DIR)/morph2nn: demos/morph2nn.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
 
-$(BUILD_DIR)/upscalenn: upscalenn.c | $(BUILD_DIR)
+$(BUILD_DIR)/upscalenn: demos/upscalenn.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
 
 $(BUILD_DIR)/adder: demos/adder.c | $(BUILD_DIR)
