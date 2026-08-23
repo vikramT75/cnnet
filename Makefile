@@ -49,7 +49,7 @@ $(BUILD_DIR)/xor: demos/xor.c | $(BUILD_DIR)
 clean:
 	rm -rf $(BUILD_DIR)/
 
-.PHONY: data data-mnist data-shapes train-mnist train-shapes classifier_infer-mnist classifier_infer-shapes upscale morph run-xor run-adder
+.PHONY: data data-mnist data-shapes train-mnist train-shapes infer-mnist infer-shapes upscale morph xor adder
 
 
 # Generate all datasets
@@ -66,10 +66,10 @@ data-shapes: $(BUILD_DIR)/shape_gen
 EPOCHS ?= 100
 # parameterised usage : make train-mnist EPOCHS=50
 
-run-xor: $(BUILD_DIR)/xor
+xor: $(BUILD_DIR)/xor
 	./$(BUILD_DIR)/xor
 
-run-adder: $(BUILD_DIR)/adder
+adder: $(BUILD_DIR)/adder
 	./$(BUILD_DIR)/adder
 
 upscale: $(BUILD_DIR)/upscalenn
@@ -84,8 +84,8 @@ train-mnist: $(BUILD_DIR)/classifier_train
 train-shapes: $(BUILD_DIR)/classifier_train
 	./$(BUILD_DIR)/classifier_train demos/models/shapes.arch demos/data/shapes_train.mat demos/data/shapes_test.mat $(EPOCHS)
 
-classifier_infer-mnist: $(BUILD_DIR)/classifier_infer
+infer-mnist: $(BUILD_DIR)/classifier_infer
 	./$(BUILD_DIR)/classifier_infer demos/models/mnist.arch demos/data/mnist.arch.weights.mat demos/models/mnist.labels
 
-classifier_infer-shapes: $(BUILD_DIR)/classifier_infer
+infer-shapes: $(BUILD_DIR)/classifier_infer
 	./$(BUILD_DIR)/classifier_infer demos/models/shapes.arch demos/data/shapes.arch.weights.mat demos/models/shapes.labels
