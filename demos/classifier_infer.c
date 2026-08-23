@@ -1,6 +1,3 @@
-// Usage:
-//   ./build/classifier_infer <demos/models/model.arch> <demos/data/weights.mat> <demos/models/label.labels>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
