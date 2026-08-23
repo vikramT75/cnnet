@@ -6,5 +6,4 @@ build/
 demos/data/*.mat
 mnist/testing/
 mnist/training/
-mnist/output
 

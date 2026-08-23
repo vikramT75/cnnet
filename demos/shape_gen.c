@@ -11,12 +11,16 @@
 #define NUM_CLASSES 3
 #define NUM_COLS (NUM_INPUTS + NUM_CLASSES) // 787
 
-#define NUM_TRAIN 8000
-#define NUM_TEST 2000
+#define NUM_TRAIN 50000
+#define NUM_TEST 7000
 
 #define CLASS_CIRCLE 0
 #define CLASS_SQUARE 1
 #define CLASS_TRIANGLE 2
+
+#ifndef PI
+#define PI 3.14159265359f
+#endif
 
 static void save_mat(FILE *out, Mat m)
 {
@@ -53,6 +57,10 @@ static void generate_sample(float pixels[NUM_INPUTS], int class_id)
     float r = randf_range(5.0f, 10.0f);
     float cx = randf_range(r + 1.0f, IMG_SIZE - r - 1.0f);
     float cy = randf_range(r + 1.0f, IMG_SIZE - r - 1.0f);
+    
+    float theta = randf_range(0.0f, 2.0f * PI);
+    float c_theta = cosf(theta);
+    float s_theta = sinf(theta);
 
     for (int y = 0; y < IMG_SIZE; y++)
     {
@@ -62,27 +70,33 @@ static void generate_sample(float pixels[NUM_INPUTS], int class_id)
             float py = (float)y + 0.5f;
             int inside = 0;
 
+            float dx = px - cx;
+            float dy = py - cy;
+            
+            // Rotate the point backwards around the center
+            float rdx = dx * c_theta - dy * s_theta;
+            float rdy = dx * s_theta + dy * c_theta;
+
             switch (class_id)
             {
             case CLASS_CIRCLE:
             {
-                float dx = px - cx, dy = py - cy;
                 inside = (dx * dx + dy * dy) <= (r * r);
             }
             break;
 
             case CLASS_SQUARE:
             {
-                inside = (fabsf(px - cx) <= r) & (fabsf(py - cy) <= r);
+                inside = (fabsf(rdx) <= r) & (fabsf(rdy) <= r);
             }
             break;
 
             case CLASS_TRIANGLE:
             {
-                float tx0 = cx, ty0 = cy - r;
-                float tx1 = cx - r, ty1 = cy + r;
-                float tx2 = cx + r, ty2 = cy + r;
-                inside = point_in_triangle(px, py, tx0, ty0, tx1, ty1, tx2, ty2);
+                float tx0 = 0.0f, ty0 = -r;
+                float tx1 = -r, ty1 = r;
+                float tx2 = r, ty2 = r;
+                inside = point_in_triangle(rdx, rdy, tx0, ty0, tx1, ty1, tx2, ty2);
             }
             break;
             }

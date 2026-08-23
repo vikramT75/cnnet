@@ -4,6 +4,10 @@ CC = gcc
 CFLAGS = -O3 -march=native -ffast-math -Wall -Wextra $(shell pkg-config --cflags raylib)
 LIBS = $(shell pkg-config --libs raylib) -lm -lX11 -ldl -pthread
 
+# Default epochs and reset flag for training
+EPOCHS ?= 100
+RESET_WEIGHTS ?= 0
+
 BUILD_DIR = build
 
 TARGETS = $(BUILD_DIR)/classifier_train \
@@ -62,9 +66,7 @@ data-mnist: $(BUILD_DIR)/mnist_gen
 data-shapes: $(BUILD_DIR)/shape_gen
 	./$(BUILD_DIR)/shape_gen
 
-# Default epochs for training
-EPOCHS ?= 100
-# parameterised usage : make train-mnist EPOCHS=50
+
 
 xor: $(BUILD_DIR)/xor
 	./$(BUILD_DIR)/xor
@@ -78,11 +80,15 @@ upscale: $(BUILD_DIR)/upscalenn
 morph: $(BUILD_DIR)/morph2nn
 	./$(BUILD_DIR)/morph2nn ./mnist/training0/3.png ./mnist/training0/7.png
 
+# parameterised usage : make train-mnist <EPOCHS=50> <RESET_WEIGHTS=0>
+
 train-mnist: $(BUILD_DIR)/classifier_train
-	./$(BUILD_DIR)/classifier_train demos/models/mnist.arch demos/data/mnist_train.mat demos/data/mnist_test.mat $(EPOCHS)
+	./$(BUILD_DIR)/classifier_train demos/models/mnist.arch demos/data/mnist_train.mat demos/data/mnist_test.mat $(EPOCHS) $(RESET_WEIGHTS)
+
+# parameterised usage : make train-shapes <EPOCHS=50> <RESET_WEIGHTS=0>
 
 train-shapes: $(BUILD_DIR)/classifier_train
-	./$(BUILD_DIR)/classifier_train demos/models/shapes.arch demos/data/shapes_train.mat demos/data/shapes_test.mat $(EPOCHS)
+	./$(BUILD_DIR)/classifier_train demos/models/shapes.arch demos/data/shapes_train.mat demos/data/shapes_test.mat $(EPOCHS) $(RESET_WEIGHTS)
 
 infer-mnist: $(BUILD_DIR)/classifier_infer
 	./$(BUILD_DIR)/classifier_infer demos/models/mnist.arch demos/data/mnist.arch.weights.mat demos/models/mnist.labels

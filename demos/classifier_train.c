@@ -107,6 +107,24 @@ static void save_weights(NN nn, const char *arch_path)
     fclose(f);
 }
 
+static int load_weights(NN nn, const char *arch_path)
+{
+    char path[512];
+    snprintf(path, sizeof(path), "%s.weights.mat", arch_path);
+    FILE *f = fopen(path, "rb");
+    if (!f) return 0;
+    
+    for (size_t l = 0; l < nn.arch_count - 1; l++)
+    {
+        Mat w = mat_load(NULL, f);
+        mat_copy(nn.ws[l], w);
+        Mat b = mat_load(NULL, f);
+        mat_copy(nn.bs[l], b);
+    }
+    fclose(f);
+    return 1;
+}
+
 static void adam_learn(NN nn, NN g, NN m_nn, NN v_nn, size_t t)
 {
     float bc1 = 1.f - powf(ADAM_B1, (float)t);
@@ -158,7 +176,7 @@ int main(int argc, char **argv)
 
     if (argc < 4)
     {
-        fprintf(stderr, "Usage: %s <model.arch> <train.mat> <test.mat> <max_epochs>\n", program);
+        fprintf(stderr, "Usage: %s <model.arch> <train.mat> <test.mat> <max_epochs> [reset=0|1]\n", program);
         return 1;
     }
 
@@ -166,6 +184,7 @@ int main(int argc, char **argv)
     const char *train_path = args_shift(&argc, &argv);
     const char *test_path = args_shift(&argc, &argv);
     size_t max_epochs = (size_t)atoi(args_shift(&argc, &argv));
+    int reset_weights = (argc > 0) ? atoi(args_shift(&argc, &argv)) : 0;
 
     size_t arch_items[256];
     size_t arch_count = 0;
@@ -222,11 +241,18 @@ int main(int argc, char **argv)
 
     Region temp = region_alloc_allocator(256 * 1024 * 1024);
     NN nn = nn_alloc(NULL, arch_items, arch_count);
-    for (size_t l = 0; l < nn.arch_count - 1; l++)
-    {
-        float scale = sqrtf(6.0f / (float)(nn.ws[l].rows + nn.ws[l].cols));
-        mat_rand(nn.ws[l], -scale, scale);
-        mat_fill(nn.bs[l], 0.0f);
+    if (!reset_weights && load_weights(nn, arch_path)) {
+        printf("Loaded existing weights from %s.weights.mat\n", arch_path);
+    } else {
+        if (reset_weights) {
+            printf("Reset flag passed. Randomizing weights from scratch...\n");
+        }
+        for (size_t l = 0; l < nn.arch_count - 1; l++)
+        {
+            float scale = sqrtf(6.0f / (float)(nn.ws[l].rows + nn.ws[l].cols));
+            mat_rand(nn.ws[l], -scale, scale);
+            mat_fill(nn.bs[l], 0.0f);
+        }
     }
 
     NN m_nn = nn_alloc(NULL, arch_items, arch_count);
@@ -242,6 +268,16 @@ int main(int argc, char **argv)
 
     printf("Adam optimizer: lr=%.4f  β1=%.3f  β2=%.3f  batch=%d\n",
            ADAM_LR, ADAM_B1, ADAM_B2, BATCH_SIZE);
+           
+    float initial_acc = eval_test_accuracy(nn, test_ti, test_to);
+    float initial_cost = nn_cost(nn, test_ti, test_to);
+    printf("Initial model test accuracy: %.2f%% | Cost: %7.6f\n", initial_acc, initial_cost);
+
+    if (max_epochs == 0) {
+        printf("\nEvaluation complete.\n");
+        return 0;
+    }
+
     printf("Starting training for %zu epochs...\n\n", max_epochs);
 
     for (size_t epoch = 1; epoch <= max_epochs; epoch++)
