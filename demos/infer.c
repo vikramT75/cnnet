@@ -7,6 +7,7 @@
 #include <math.h>
 #include <ctype.h>
 
+#define NN_CROSS_ENTROPY
 #define NN_ACT ACT_SIG
 #define NN_IMPLEMENTATION
 #include "../nn.h"
@@ -46,20 +47,6 @@ static void softmax_copy(NN nn, float *out, size_t n)
 {
     for (size_t i = 0; i < n; i++)
         out[i] = MAT_AT(NN_OUTPUT(nn), 0, i);
-
-    float mx = out[0];
-    for (size_t i = 1; i < n; i++)
-        if (out[i] > mx)
-            mx = out[i];
-
-    float sum = 0.f;
-    for (size_t i = 0; i < n; i++)
-    {
-        out[i] = expf(out[i] - mx);
-        sum += out[i];
-    }
-    for (size_t i = 0; i < n; i++)
-        out[i] /= sum;
 }
 
 static size_t load_labels(const char *path, char labels[MAX_LABELS][LABEL_LEN])

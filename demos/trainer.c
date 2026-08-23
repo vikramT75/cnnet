@@ -7,8 +7,8 @@
 #include <time.h>
 #include <math.h>
 
+#define NN_CROSS_ENTROPY
 #define NN_ACT ACT_SIG
-#define NN_CROSS_ENTROPY // use cross-entropy gradient at output layer
 #define NN_IMPLEMENTATION
 #include "../nn.h"
 

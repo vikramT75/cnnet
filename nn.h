@@ -384,7 +384,35 @@ void nn_forward(NN nn) // X ⋅ W + B
     {
         mat_dot(nn.as[i + 1], nn.as[i], nn.ws[i]);
         mat_sum(nn.as[i + 1], nn.bs[i]);
-        mat_act(nn.as[i + 1]);
+#ifdef NN_CROSS_ENTROPY
+        if (i == nn.arch_count - 2)
+        {
+            for (size_t r = 0; r < nn.as[i + 1].rows; r++)
+            {
+                float mx = MAT_AT(nn.as[i + 1], r, 0);
+                for (size_t c = 1; c < nn.as[i + 1].cols; c++)
+                    if (MAT_AT(nn.as[i + 1], r, c) > mx)
+                        mx = MAT_AT(nn.as[i + 1], r, c);
+                float sum = 0.f;
+                for (size_t c = 0; c < nn.as[i + 1].cols; c++)
+                {
+                    float v = expf(MAT_AT(nn.as[i + 1], r, c) - mx);
+                    MAT_AT(nn.as[i + 1], r, c) = v;
+                    sum += v;
+                }
+                for (size_t c = 0; c < nn.as[i + 1].cols; c++)
+                {
+                    MAT_AT(nn.as[i + 1], r, c) /= sum;
+                }
+            }
+        }
+        else
+        {
+            mat_act(nn.as[i + 1]);
+        }
+#else
+        mat_act(nn.as[i + 1]); // regular MSE
+#endif
     }
 }
 
@@ -406,8 +434,17 @@ float nn_cost(NN nn, Mat ti, Mat to)
 
         for (size_t j = 0; j < q; j++)
         {
+#ifdef NN_CROSS_ENTROPY
+            float pred = MAT_AT(NN_OUTPUT(nn), 0, j);
+            float target = MAT_AT(y, 0, j);
+            if (target > 0.f)
+            {
+                c += -target * logf(pred + 1e-7f);
+            }
+#else
             float d = MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(y, 0, j);
-            c += d * d;
+            c += d * d; // regular MSE
+#endif
         }
     }
     return c / n;

@@ -5,7 +5,7 @@
 #include "./thirdparty/stb_image.h"       // STB_IMAGE_IMPLEMENTATION
 #include "./thirdparty/stb_image_write.h" // AND STB_IMAGE_WRIE_IMPLEMENTATION already in raylib lib.
 
-#define NN_ACT ACT_RELU
+#define NN_ACT ACT_SIG
 // #define NN_BACKPROP_TRADITIONAL
 #define NN_IMPLEMENTATION
 #include "nn.h"
@@ -17,7 +17,7 @@ size_t arch[] = {3, 10, 10, 4, 1};
 size_t max_epoch = 100 * 1000;
 size_t batches_per_frame = 200;
 size_t batch_size = 28;
-float rate = 0.1f;
+float rate = 0.5f;
 bool paused = true;
 
 typedef struct
