@@ -284,7 +284,7 @@ int main(int argc, char **argv)
             marker = "  <- BEST, saved";
         }
 
-        printf("Epoch %4zu/%zu | Loss: %7.6f | Acc: %5.1f%% | %.2fs%s\n",
+        printf("Epoch %4zu/%zu | Cost: %7.6f | Acc: %5.2f%% | %.2fs%s\n",
                epoch, max_epochs, epoch_cost, test_acc, time_taken, marker);
 
         mat_shuffle_rows(train_t);
