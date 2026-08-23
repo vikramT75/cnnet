@@ -1,20 +1,10 @@
-mnist/output/*.png
-upscalenn
-morph2nn
-adder
-adder_gen
-xor
-xor_gen
-train
 
 # Binaries
-demos/infer
-demos/trainer
-demos/shape_gen
-demos/mnist_gen
+build/
 
 # Datasets
 demos/data/*.mat
 mnist/testing/
 mnist/training/
+mnist/output
 

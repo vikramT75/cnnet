@@ -44,6 +44,7 @@ void nn_render_raylib(NN nn, int rx, int ry, int rw, int rh)
     Color low_colour = {0xFF, 0x00, 0xFF, 0xFF};
     Color high_colour = {0x00, 0xFF, 0x00, 0x00};
     Color background_colour = {0x18, 0x18, 0x18, 0xFF};
+    (void)background_colour;
 
     // ClearBackground(background_colour);
 

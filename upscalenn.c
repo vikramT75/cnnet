@@ -27,7 +27,6 @@ typedef struct
     size_t capacity;
 } Arch;
 
-
 char *args_shift(int *argc, char ***argv)
 {
     assert(*argc > 0);
@@ -36,8 +35,6 @@ char *args_shift(int *argc, char ***argv)
     (*argv) += 1;
     return result;
 }
-
-
 
 int main(int argc, char **argv)
 {
@@ -88,7 +85,7 @@ int main(int argc, char **argv)
         }
     }
 
-    Mat ti = {
+    /*Mat ti = {
         .rows = t.rows,
         .cols = 2,
         .stride = t.stride,
@@ -98,7 +95,7 @@ int main(int argc, char **argv)
         .rows = t.rows,
         .cols = 1,
         .stride = t.stride,
-        .es = &MAT_AT(t, 0, ti.cols)};
+        .es = &MAT_AT(t, 0, ti.cols)};*/
 
     // MAT_PRINT(ti);
     // MAT_PRINT(to);
@@ -226,9 +223,9 @@ int main(int argc, char **argv)
 
         float scale = 11.f;
 
-        for (size_t y = 0; y < img_width; y++)
+        for (size_t y = 0; y < (size_t)img_width; y++)
         {
-            for (size_t x = 0; x < img_height; x++)
+            for (size_t x = 0; x < (size_t)img_height; x++)
             {
                 MAT_AT(NN_INPUT(nn), 0, 0) = (float)x / (img_width - 1);
                 MAT_AT(NN_INPUT(nn), 0, 1) = (float)y / (img_height - 1);

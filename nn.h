@@ -59,7 +59,7 @@ float reluf(float);
 float tanhf(float);
 
 Mat mat_alloc(Region *r, size_t rows, size_t cols);
-Mat mat_save(FILE *out, Mat m);
+void mat_save(FILE *out, Mat m);
 Mat mat_load(Region *r, FILE *in);
 void mat_rand(Mat m, float low, float high);
 void mat_fill(Mat m, float x);
@@ -147,7 +147,7 @@ Mat mat_alloc(Region *r, size_t rows, size_t cols)
     return m;
 }
 
-Mat mat_save(FILE *out, Mat m)
+void mat_save(FILE *out, Mat m)
 {
     const char *magic = "nn.h.mat";
     fwrite(magic, strlen(magic), 1, out);
