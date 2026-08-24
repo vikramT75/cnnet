@@ -1,8 +1,8 @@
 export PKG_CONFIG_PATH := ../raylib/lib/pkgconfig/
 
 CC = gcc
-CFLAGS = -O3 -march=native -ffast-math -Wall -Wextra $(shell pkg-config --cflags raylib)
-LIBS = $(shell pkg-config --libs raylib) -lm -lX11 -ldl -pthread
+CFLAGS = -O3 -march=native -ffast-math -Wall -Wextra -fopenmp $(shell pkg-config --cflags raylib)
+LIBS = $(shell pkg-config --libs raylib) -lm -lX11 -ldl -pthread -fopenmp
 
 # Default epochs and reset flag for training
 EPOCHS ?= 100

@@ -66,7 +66,11 @@ void mat_fill(Mat m, float x);
 Mat mat_row(Mat m, size_t row);
 void mat_copy(Mat dst, Mat src);
 void mat_dot(Mat dst, Mat a, Mat b);
+void mat_dot_at_b(Mat dst, Mat a, Mat b);
+void mat_dot_a_bt(Mat dst, Mat a, Mat b);
 void mat_sum(Mat dst, Mat a);
+void mat_sum_rows(Mat dst, Mat a);
+void mat_add_row(Mat dst, Mat row_vec);
 void mat_act(Mat m);
 void mat_print(Mat m, const char *name, size_t padding);
 void mat_shuffle_rows(Mat m);
@@ -89,6 +93,7 @@ typedef struct
 #define NN_INPUT(nn) (NN_ASSERT((nn).arch_count > 0), (nn).as[0])
 #define NN_OUTPUT(nn) (NN_ASSERT((nn).arch_count > 0), (nn).as[((nn).arch_count - 1)])
 
+NN nn_alloc_batched(Region *r, size_t *arch, size_t arch_count, size_t batch_size);
 NN nn_alloc(Region *r, size_t *arch, size_t arch_count);
 void nn_zero(NN nn);
 void nn_print(NN nn, const char *name);
@@ -201,6 +206,7 @@ void mat_dot(Mat dst, Mat a, Mat b)
     NN_ASSERT(dst.rows == a.rows);
     NN_ASSERT(dst.cols == b.cols);
 
+#pragma omp parallel for if (dst.rows > 1)
     for (size_t i = 0; i < dst.rows; i++)
     {
         for (size_t j = 0; j < dst.cols; j++)
@@ -214,6 +220,53 @@ void mat_dot(Mat dst, Mat a, Mat b)
             {
                 MAT_AT(dst, i, j) += a_ik * MAT_AT(b, k, j);
             }
+        }
+    }
+}
+
+void mat_dot_at_b(Mat dst, Mat a, Mat b)
+{
+    NN_ASSERT(a.rows == b.rows);
+    size_t n = a.rows;
+    NN_ASSERT(dst.rows == a.cols);
+    NN_ASSERT(dst.cols == b.cols);
+
+#pragma omp parallel for if (dst.rows > 1)
+    for (size_t i = 0; i < dst.rows; i++)
+    {
+        for (size_t j = 0; j < dst.cols; j++)
+        {
+            MAT_AT(dst, i, j) = 0.f;
+        }
+        for (size_t k = 0; k < n; k++)
+        {
+            float a_ki = MAT_AT(a, k, i);
+            for (size_t j = 0; j < dst.cols; j++)
+            {
+                MAT_AT(dst, i, j) += a_ki * MAT_AT(b, k, j);
+            }
+        }
+    }
+}
+
+void mat_dot_a_bt(Mat dst, Mat a, Mat b)
+{
+    NN_ASSERT(a.cols == b.cols);
+    size_t n = a.cols;
+    NN_ASSERT(dst.rows == a.rows);
+    NN_ASSERT(dst.cols == b.rows);
+
+#pragma omp parallel for if (dst.rows > 1)
+    for (size_t i = 0; i < dst.rows; i++)
+    {
+        for (size_t j = 0; j < dst.cols; j++)
+        {
+            float sum = 0;
+            for (size_t k = 0; k < n; k++)
+            {
+                sum += MAT_AT(a, i, k) * MAT_AT(b, j, k);
+            }
+            MAT_AT(dst, i, j) = sum;
         }
     }
 }
@@ -249,6 +302,36 @@ void mat_sum(Mat dst, Mat a)
     {
         for (size_t j = 0; j < dst.cols; j++)
             MAT_AT(dst, i, j) += MAT_AT(a, i, j);
+    }
+}
+
+void mat_sum_rows(Mat dst, Mat a)
+{
+    NN_ASSERT(dst.rows == 1);
+    NN_ASSERT(dst.cols == a.cols);
+
+    for (size_t j = 0; j < dst.cols; j++)
+    {
+        float sum = 0;
+        for (size_t i = 0; i < a.rows; i++)
+        {
+            sum += MAT_AT(a, i, j);
+        }
+        MAT_AT(dst, 0, j) = sum;
+    }
+}
+
+void mat_add_row(Mat dst, Mat row_vec)
+{
+    NN_ASSERT(dst.cols == row_vec.cols);
+    NN_ASSERT(row_vec.rows == 1);
+
+    for (size_t i = 0; i < dst.rows; i++)
+    {
+        for (size_t j = 0; j < dst.cols; j++)
+        {
+            MAT_AT(dst, i, j) += MAT_AT(row_vec, 0, j);
+        }
     }
 }
 
@@ -317,9 +400,10 @@ void mat_shuffle_rows(Mat m)
     }
 }
 
-NN nn_alloc(Region *r, size_t *arch, size_t arch_count)
+NN nn_alloc_batched(Region *r, size_t *arch, size_t arch_count, size_t batch_size)
 {
     NN_ASSERT(arch_count > 0);
+    NN_ASSERT(batch_size > 0);
 
     NN nn;
     nn.arch = arch;
@@ -332,15 +416,20 @@ NN nn_alloc(Region *r, size_t *arch, size_t arch_count)
     nn.as = region_alloc(r, sizeof(*nn.as) * nn.arch_count);
     NN_ASSERT(nn.as != NULL);
 
-    nn.as[0] = mat_alloc(r, 1, arch[0]);
+    nn.as[0] = mat_alloc(r, batch_size, arch[0]);
     for (size_t i = 1; i < arch_count; i++)
     {
         nn.ws[i - 1] = mat_alloc(r, nn.as[i - 1].cols, arch[i]);
         nn.bs[i - 1] = mat_alloc(r, 1, arch[i]);
-        nn.as[i] = mat_alloc(r, 1, arch[i]);
+        nn.as[i] = mat_alloc(r, batch_size, arch[i]);
     }
 
     return nn;
+}
+
+NN nn_alloc(Region *r, size_t *arch, size_t arch_count)
+{
+    return nn_alloc_batched(r, arch, arch_count, 1);
 }
 
 void nn_zero(NN nn)
@@ -383,7 +472,7 @@ void nn_forward(NN nn) // X ⋅ W + B
     for (size_t i = 0; i < nn.arch_count - 1; i++)
     {
         mat_dot(nn.as[i + 1], nn.as[i], nn.ws[i]);
-        mat_sum(nn.as[i + 1], nn.bs[i]);
+        mat_add_row(nn.as[i + 1], nn.bs[i]);
 #ifdef NN_CROSS_ENTROPY
         if (i == nn.arch_count - 2)
         {
@@ -421,36 +510,88 @@ float nn_cost(NN nn, Mat ti, Mat to)
     NN_ASSERT(ti.rows == to.rows);
     NN_ASSERT(to.cols == NN_OUTPUT(nn).cols);
     size_t n = ti.rows;
-
     float c = 0.f;
-    for (size_t i = 0; i < n; i++)
-    {
-        Mat x = mat_row(ti, i);
-        Mat y = mat_row(to, i);
-        mat_copy(NN_INPUT(nn), x);
-        nn_forward(nn);
-        size_t q = to.cols;
-        NN_OUTPUT(nn);
+    size_t q = to.cols;
 
-        for (size_t j = 0; j < q; j++)
+    bool can_batch = (n <= nn.as[0].rows);
+
+    if (can_batch)
+    {
+        size_t old_rows[256];
+        for (size_t l = 0; l < nn.arch_count; l++)
         {
-#ifdef NN_CROSS_ENTROPY
-            float pred = MAT_AT(NN_OUTPUT(nn), 0, j);
-            float target = MAT_AT(y, 0, j);
-            if (target > 0.f)
+            old_rows[l] = nn.as[l].rows;
+            nn.as[l].rows = n;
+        }
+
+        mat_copy(NN_INPUT(nn), ti);
+        nn_forward(nn);
+
+        for (size_t i = 0; i < n; i++)
+        {
+            for (size_t j = 0; j < q; j++)
             {
-                c += -target * logf(pred + 1e-7f);
-            }
+#ifdef NN_CROSS_ENTROPY
+                float pred = MAT_AT(NN_OUTPUT(nn), i, j);
+                float target = MAT_AT(to, i, j);
+                if (target > 0.f)
+                {
+                    c += -target * logf(pred + 1e-7f);
+                }
 #else
-            float d = MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(y, 0, j);
-            c += d * d; // regular MSE
+                float d = MAT_AT(NN_OUTPUT(nn), i, j) - MAT_AT(to, i, j);
+                c += d * d;
 #endif
+            }
+        }
+
+        for (size_t l = 0; l < nn.arch_count; l++)
+        {
+            nn.as[l].rows = old_rows[l];
         }
     }
+    else
+    {
+        size_t old_rows[256];
+        for (size_t l = 0; l < nn.arch_count; l++)
+        {
+            old_rows[l] = nn.as[l].rows;
+            nn.as[l].rows = 1;
+        }
+
+        for (size_t i = 0; i < n; i++)
+        {
+            Mat x = mat_row(ti, i);
+            Mat y = mat_row(to, i);
+            mat_copy(NN_INPUT(nn), x);
+            nn_forward(nn);
+
+            for (size_t j = 0; j < q; j++)
+            {
+#ifdef NN_CROSS_ENTROPY
+                float pred = MAT_AT(NN_OUTPUT(nn), 0, j);
+                float target = MAT_AT(y, 0, j);
+                if (target > 0.f)
+                {
+                    c += -target * logf(pred + 1e-7f);
+                }
+#else
+                float d = MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(y, 0, j);
+                c += d * d;
+#endif
+            }
+        }
+
+        for (size_t l = 0; l < nn.arch_count; l++)
+        {
+            nn.as[l].rows = old_rows[l];
+        }
+    }
+
     return c / n;
 }
 
-NN nn_backprop(Region *r, NN nn, Mat ti, Mat to)
+NN nn_backprop_iterative(Region *r, NN nn, Mat ti, Mat to)
 {
     NN_ASSERT(ti.rows == to.rows);
     size_t n = ti.rows;
@@ -561,6 +702,127 @@ NN nn_backprop(Region *r, NN nn, Mat ti, Mat to)
         }
     }
     return g;
+}
+
+NN nn_backprop_vectorised(Region *r, NN nn, Mat ti, Mat to)
+{
+    NN_ASSERT(ti.rows == to.rows);
+    size_t n = ti.rows;
+    NN_ASSERT(NN_OUTPUT(nn).cols == to.cols);
+
+    NN g = nn_alloc_batched(r, nn.arch, nn.arch_count, n);
+    nn_zero(g);
+
+    size_t old_rows[256];
+    for (size_t l = 0; l < nn.arch_count; l++)
+    {
+        old_rows[l] = nn.as[l].rows;
+        nn.as[l].rows = n;
+    }
+
+    mat_copy(NN_INPUT(nn), ti);
+    nn_forward(nn);
+
+#pragma omp parallel for if (n > 1)
+    for (size_t i = 0; i < n; i++)
+    {
+        for (size_t j = 0; j < to.cols; j++)
+        {
+#ifdef NN_BACKPROP_TRADITIONAL
+            MAT_AT(NN_OUTPUT(g), i, j) = 2 * (MAT_AT(NN_OUTPUT(nn), i, j) - MAT_AT(to, i, j));
+#else
+            MAT_AT(NN_OUTPUT(g), i, j) = MAT_AT(NN_OUTPUT(nn), i, j) - MAT_AT(to, i, j);
+#endif
+        }
+    }
+
+    float s;
+#ifdef NN_BACKPROP_TRADITIONAL
+    s = 1;
+#else
+    s = 2;
+#endif
+
+    for (size_t l = nn.arch_count - 1; l > 0; l--)
+    {
+#pragma omp parallel for if (n > 1)
+        for (size_t i = 0; i < n; i++)
+        {
+            for (size_t j = 0; j < nn.as[l].cols; j++)
+            {
+                float a = MAT_AT(nn.as[l], i, j);
+                float da = MAT_AT(g.as[l], i, j);
+                float q;
+                switch (NN_ACT)
+                {
+                case ACT_SIG:
+                    q = a * (1 - a);
+                    break;
+                case ACT_RELU:
+                    q = (a >= 0) ? 1 : NN_RELU_PARAM;
+                    break;
+                case ACT_TANH:
+                    q = 1 - a * a;
+                    break;
+                default:
+                    NN_ASSERT(0 && "UNREACHABLE");
+                }
+#ifdef NN_CROSS_ENTROPY
+                float delta = (l == nn.arch_count - 1) ? da : s * da * q;
+#else
+                float delta = s * da * q;
+#endif
+                MAT_AT(g.as[l], i, j) = delta;
+            }
+        }
+
+        mat_dot_at_b(g.ws[l - 1], nn.as[l - 1], g.as[l]);
+        mat_sum_rows(g.bs[l - 1], g.as[l]);
+
+        if (l > 1)
+        {
+            mat_dot_a_bt(g.as[l - 1], g.as[l], nn.ws[l - 1]);
+        }
+    }
+
+    for (size_t i = 0; i < g.arch_count - 1; i++)
+    {
+#pragma omp parallel for
+        for (size_t j = 0; j < g.ws[i].rows; j++)
+        {
+            for (size_t k = 0; k < g.ws[i].cols; k++)
+            {
+                MAT_AT(g.ws[i], j, k) /= n;
+            }
+        }
+
+#pragma omp parallel for if (n > 1)
+        for (size_t j = 0; j < g.bs[i].rows; j++)
+        {
+            for (size_t k = 0; k < g.bs[i].cols; k++)
+            {
+                MAT_AT(g.bs[i], j, k) /= n;
+            }
+        }
+    }
+
+    for (size_t l = 0; l < nn.arch_count; l++)
+    {
+        nn.as[l].rows = old_rows[l];
+    }
+    return g;
+}
+
+NN nn_backprop(Region *r, NN nn, Mat ti, Mat to)
+{
+    if (nn.as[0].rows >= ti.rows)
+    {
+        return nn_backprop_vectorised(r, nn, ti, to);
+    }
+    else
+    {
+        return nn_backprop_iterative(r, nn, ti, to);
+    }
 }
 
 NN nn_finite_diff(Region *r, NN nn, Mat ti, Mat to, float eps)

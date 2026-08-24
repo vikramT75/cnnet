@@ -3,6 +3,7 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
+#include <omp.h>
 
 #define NN_CROSS_ENTROPY
 #define NN_ACT ACT_SIG
@@ -16,7 +17,7 @@ typedef struct
     size_t capacity;
 } Arch;
 
-#define BATCH_SIZE 32
+#define BATCH_SIZE 1024
 
 // Adam hyper-parameters
 #define ADAM_LR 0.001f
@@ -65,6 +66,13 @@ static size_t row_argmax(Mat m, size_t row)
 
 static float eval_test_accuracy(NN nn, Mat test_ti, Mat test_to)
 {
+    size_t old_rows[256];
+    for (size_t l = 0; l < nn.arch_count; l++)
+    {
+        old_rows[l] = nn.as[l].rows;
+        nn.as[l].rows = 1;
+    }
+
     size_t correct = 0;
     for (size_t i = 0; i < test_ti.rows; i++)
     {
@@ -72,6 +80,11 @@ static float eval_test_accuracy(NN nn, Mat test_ti, Mat test_to)
         nn_forward(nn);
         if (nn_argmax(nn) == row_argmax(test_to, i))
             correct++;
+    }
+
+    for (size_t l = 0; l < nn.arch_count; l++)
+    {
+        nn.as[l].rows = old_rows[l];
     }
     return 100.f * (float)correct / (float)test_ti.rows;
 }
@@ -112,8 +125,9 @@ static int load_weights(NN nn, const char *arch_path)
     char path[512];
     snprintf(path, sizeof(path), "%s.weights.mat", arch_path);
     FILE *f = fopen(path, "rb");
-    if (!f) return 0;
-    
+    if (!f)
+        return 0;
+
     for (size_t l = 0; l < nn.arch_count - 1; l++)
     {
         Mat w = mat_load(NULL, f);
@@ -132,6 +146,7 @@ static void adam_learn(NN nn, NN g, NN m_nn, NN v_nn, size_t t)
 
     for (size_t l = 0; l < nn.arch_count - 1; l++)
     {
+#pragma omp parallel for
         for (size_t r = 0; r < nn.ws[l].rows; r++)
         {
             for (size_t c = 0; c < nn.ws[l].cols; c++)
@@ -149,6 +164,7 @@ static void adam_learn(NN nn, NN g, NN m_nn, NN v_nn, size_t t)
                 MAT_AT(nn.ws[l], r, c) -= ADAM_LR * m_hat / (sqrtf(v_hat) + ADAM_EPS);
             }
         }
+#pragma omp parallel for
         for (size_t r = 0; r < nn.bs[l].rows; r++)
         {
             for (size_t c = 0; c < nn.bs[l].cols; c++)
@@ -240,11 +256,15 @@ int main(int argc, char **argv)
     Mat test_to = {.rows = test_t.rows, .cols = outs, .stride = test_t.stride, .es = &MAT_AT(test_t, 0, ins)};
 
     Region temp = region_alloc_allocator(256 * 1024 * 1024);
-    NN nn = nn_alloc(NULL, arch_items, arch_count);
-    if (!reset_weights && load_weights(nn, arch_path)) {
+    NN nn = nn_alloc_batched(NULL, arch_items, arch_count, BATCH_SIZE);
+    if (!reset_weights && load_weights(nn, arch_path))
+    {
         printf("Loaded existing weights from %s.weights.mat\n", arch_path);
-    } else {
-        if (reset_weights) {
+    }
+    else
+    {
+        if (reset_weights)
+        {
             printf("Reset flag passed. Randomizing weights from scratch...\n");
         }
         for (size_t l = 0; l < nn.arch_count - 1; l++)
@@ -268,12 +288,14 @@ int main(int argc, char **argv)
 
     printf("Adam optimizer: lr=%.4f  β1=%.3f  β2=%.3f  batch=%d\n",
            ADAM_LR, ADAM_B1, ADAM_B2, BATCH_SIZE);
-           
+
     float initial_acc = eval_test_accuracy(nn, test_ti, test_to);
     float initial_cost = nn_cost(nn, test_ti, test_to);
-    printf("Initial model test accuracy: %.2f%% | Cost: %7.6f\n", initial_acc, initial_cost);
+    best_acc = initial_acc;
+    printf("Initial Test Acc: %.2f%% | Test Cost: %7.6f\n", initial_acc, initial_cost);
 
-    if (max_epochs == 0) {
+    if (max_epochs == 0)
+    {
         printf("\nEvaluation complete.\n");
         return 0;
     }
@@ -282,7 +304,7 @@ int main(int argc, char **argv)
 
     for (size_t epoch = 1; epoch <= max_epochs; epoch++)
     {
-        clock_t start = clock();
+        double start = omp_get_wtime();
         float epoch_cost = 0.f;
 
         for (size_t b = 0; b < n_batches; b++)
@@ -307,8 +329,8 @@ int main(int argc, char **argv)
 
         epoch_cost /= (float)n_batches;
 
-        clock_t end = clock();
-        double time_taken = ((double)(end - start)) / CLOCKS_PER_SEC;
+        double end = omp_get_wtime();
+        double time_taken = end - start;
 
         float test_acc = eval_test_accuracy(nn, test_ti, test_to);
 
@@ -320,12 +342,12 @@ int main(int argc, char **argv)
             marker = "  <- BEST, saved";
         }
 
-        printf("Epoch %4zu/%zu | Cost: %7.6f | Acc: %5.2f%% | %.2fs%s\n",
+        printf("Epoch %4zu/%zu | Train Cost: %7.6f | Test Acc: %5.2f%% | %.2fs%s\n",
                epoch, max_epochs, epoch_cost, test_acc, time_taken, marker);
 
         mat_shuffle_rows(train_t);
     }
 
-    printf("\nBest test accuracy: %.1f%%\n", best_acc);
+    printf("\nBest test accuracy: %.2f%%\n", best_acc);
     return 0;
 }
