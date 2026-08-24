@@ -8,7 +8,7 @@ It also features visual Raylib demonstrations for modelling logic gates and lear
 
 ## Features
 
-- **Core Library (`nn.h`):** A single-header library implementing forward propagation, backpropagation and batch processing.
+- **Core Library (`nn.h`):** A single-header library implementing forward propagation, backpropagation and **OpenMP**-accelerated vectorised batched matrix operations.
 - **Modern ML Tooling:** Implements the Adam Optimiser and logarithmic Cross-Entropy Loss with Softmax activation.
 - **Interactive Visualiser (`nn_ui.h`):** Raylib-based GUI rendering network architectures, live cost plots and drawing canvases.
 - **Data Pipeline:** Uses text-based manifests to parse raw PNGs directly into binary `.mat` matrices.
@@ -33,15 +33,16 @@ It also features visual Raylib demonstrations for modelling logic gates and lear
 ## Directory Structure
 
 - `nn.h` & `nn_ui.h`: Core math, memory and visualisation libraries.
-- `Makefile`: Multi-core build system configured for hardware-accelerated execution (`-march=native -ffast-math`).
+- `Makefile`: Multi-core build system configured for hardware-accelerated multi-threaded execution (`-march=native -ffast-math -fopenmp`).
 - `demos/`: Source code for all executables.
   - `data/` & `models/`: Binary `.mat` matrices, manifests and `.arch` network configs.
 - `build/`: Output directory for compiled executables.
 
 ## Getting Started
 
-**Prerequisites:** 
-- GCC and Raylib (`pkg-config --cflags raylib`).
+**Prerequisites:**
+
+- GCC (with **OpenMP** support) and Raylib (`pkg-config --cflags raylib`).
 - The raw [MNIST PNG dataset](https://www.kaggle.com/datasets/jidhumohan/mnist-png) to be extracted into the `mnist/` folder.
 
 ### Building & Cleaning
@@ -68,9 +69,13 @@ To train and test a multi-class classifier, follow these three steps:
    make data-mnist
    ```
 2. **Train the Model:**
+
    ```bash
    make train-mnist EPOCHS=50  # Default is 100
    ```
+
+   _(Tip: To restrict OpenMP CPU thread usage, use `OMP_NUM_THREADS=N` , for example: `OMP_NUM_THREADS=4 make train-mnist`)_
+
 3. **Run Live Inference:**
    ```bash
    make infer-mnist
